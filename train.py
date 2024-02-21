@@ -16,6 +16,7 @@ from utils.loss_utils import l1_loss, ssim, kl_divergence
 from gaussian_renderer import render, network_gui
 import sys
 from scene import Scene, GaussianModel, DeformModel
+from games.dynamic.pcd_splatting.scene.pcd_gaussian_model import PcdGaussianModel
 from utils.general_utils import safe_state, get_linear_noise_func
 import uuid
 from tqdm import tqdm
@@ -33,8 +34,8 @@ except ImportError:
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations):
     tb_writer = prepare_output_and_logger(dataset)
-    gaussians = GaussianModel(dataset.sh_degree)
-    deform = DeformModel(dataset.is_blender, dataset.is_6dof)
+    gaussians = PcdGaussianModel(dataset.sh_degree)
+    deform = gaussians.deform_model
     deform.train_setting(opt)
 
     scene = Scene(dataset, gaussians)
@@ -88,16 +89,21 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         fid = viewpoint_cam.fid
 
         if iteration < opt.warm_up:
-            d_xyz, d_rotation, d_scaling = 0.0, 0.0, 0.0
+            d_v1, d_v2, d_v3 = 0.0, 0.0, 0.0
         else:
             N = gaussians.get_xyz.shape[0]
             time_input = fid.unsqueeze(0).expand(N, -1)
 
             ast_noise = 0 if dataset.is_blender else torch.randn(1, 1, device='cuda').expand(N, -1) * time_interval * smooth_term(iteration)
-            d_xyz, d_rotation, d_scaling = deform.step(gaussians.get_xyz.detach(), time_input + ast_noise)
+            d_v1, d_v2, d_v3 = deform.step(
+                gaussians.pseudomesh[:, 0].detach(),
+                gaussians.pseudomesh[:, 1].detach(),
+                gaussians.pseudomesh[:, 2].detach(),
+                time_input + ast_noise
+            )
 
         # Render
-        render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_xyz, d_rotation, d_scaling, dataset.is_6dof)
+        render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_v1, d_v2, d_v3, dataset.is_6dof)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg_re["render"], render_pkg_re[
             "viewspace_points"], render_pkg_re["visibility_filter"], render_pkg_re["radii"]
         # depth = render_pkg_re["depth"]
@@ -161,6 +167,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 deform.optimizer.zero_grad()
                 deform.update_learning_rate(iteration)
 
+            if hasattr(gaussians, 'prepare_scaling_rot'):
+                gaussians.prepare_scaling_rot()
+
     print("Best PSNR = {} in Iteration {}".format(best_psnr, best_iteration))
 
 
@@ -213,9 +222,13 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     fid = viewpoint.fid
                     xyz = scene.gaussians.get_xyz
                     time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-                    d_xyz, d_rotation, d_scaling = deform.step(xyz.detach(), time_input)
+                    d_v1, d_v2, d_v3 = deform.step(
+                        scene.gaussians.pseudomesh[:, 0].detach(),
+                        scene.gaussians.pseudomesh[:, 1].detach(),
+                        scene.gaussians.pseudomesh[:, 2].detach(), time_input
+                    )
                     image = torch.clamp(
-                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_xyz, d_rotation, d_scaling, is_6dof)["render"],
+                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_v1, d_v2, d_v3, is_6dof)["render"],
                         0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     images = torch.cat((images, image.unsqueeze(0)), dim=0)
@@ -258,7 +271,7 @@ if __name__ == "__main__":
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int,
                         default=[5000, 6000, 7_000] + list(range(10000, 40001, 1000)))
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 10_000, 20_000, 30_000, 40000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[1_000, 7_000, 10_000, 20_000, 30_000, 40000])
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
