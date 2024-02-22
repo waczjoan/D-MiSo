@@ -88,6 +88,7 @@ class PcdGaussianModel(GaussianModel):
         rotation = self._rotation
         pseudomesh = self.create_faces(xyz, scales, rotation)
         self.pseudomesh = pseudomesh
+        #self.idx_faces = torch.arange(0, pseudomesh.shape[0]).cuda()
 
     @staticmethod
     def create_faces(xyz, scales, rotation):
@@ -110,7 +111,7 @@ class PcdGaussianModel(GaussianModel):
 
         v2[~mask] = _v3[~mask]
         v3[~mask] = _v2[~mask]
-
+        #idx = torch.rand_like(v1)
         pseudomesh = torch.stack([v1, v2, v3], dim = 1)
         return pseudomesh
 
@@ -152,9 +153,11 @@ class PcdGaussianModel(GaussianModel):
         r3 = r3 / (torch.linalg.vector_norm(r3, dim=-1, keepdim=True) + eps)
         s3 = dot(_s3, r3)
 
+        mask = s3 < (s2/10)
+        s3[mask] = s2[mask]/10
         scales = torch.cat([s2, s3], dim=1)
         _scaling = self.scaling_inverse_activation(scales)
-        _scaling = torch.clamp(_scaling, min=-6, max=-4)
+        _scaling = torch.clamp(_scaling, max=-5)
 
         rotation = torch.stack([r1, r2, r3], dim=1)
         rotation = rotation.transpose(-2, -1)
@@ -235,6 +238,15 @@ class PcdGaussianModel(GaussianModel):
         new_scaling = self.get_scaling[selected_pts_mask].repeat(N,1) / (0.8*N)
         new_rotation = self._rotation[selected_pts_mask].repeat(N,1)
         new_pseudomesh = self.create_faces(new_xyz, new_scaling, new_rotation)
+        """
+        last_idx = self.idx_faces[-1] + 1
+        self.idx_faces = torch.cat(
+            [
+                self.idx_faces,
+                torch.arange(last_idx, last_idx + new_pseudomesh.shape[0]).cuda()
+            ]
+        )
+        """
 
         new_features_dc = self._features_dc[selected_pts_mask].repeat(N, 1, 1)
         new_features_rest = self._features_rest[selected_pts_mask].repeat(N, 1, 1)
@@ -258,6 +270,18 @@ class PcdGaussianModel(GaussianModel):
 
         self.denom = self.denom[valid_points_mask]
         self.max_radii2D = self.max_radii2D[valid_points_mask]
+        #last_idx = self.idx_faces[-1] + 1
+        
+        """
+        self.idx_faces = torch.cat(
+            [
+                self.idx_faces,
+                torch.arange(last_idx, last_idx + self.pseudomesh.shape[0] - self.idx_faces.shape[0]).cuda()
+            ]
+        )
+        self.idx_faces = self.idx_faces[valid_points_mask]
+        """
+
 
     def densification_postfix(self, new_pseudomesh, new_features_dc, new_features_rest, new_opacities):
         d = {"pseudomesh": new_pseudomesh,
@@ -313,6 +337,9 @@ class PcdGaussianModel(GaussianModel):
         params = torch.load(path_model)
         if 'pseudomesh' in params:
             self.pseudomesh = nn.Parameter(params['pseudomesh'])
+        
+        #if 'idx_faces' in params:
+        #    self.idx_faces = params['idx_faces']
 
     def _save_ply(self, path):
         mkdir_p(os.path.dirname(path))

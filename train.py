@@ -89,13 +89,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         fid = viewpoint_cam.fid
 
         if iteration < opt.warm_up:
-            d_v1, d_v2, d_v3 = 0.0, 0.0, 0.0
+            d_v1, d_v2, d_v3, d_rot = 0.0, 0.0, 0.0, 0.0
         else:
             N = gaussians.get_xyz.shape[0]
             time_input = fid.unsqueeze(0).expand(N, -1)
 
             ast_noise = 0 if dataset.is_blender else torch.randn(1, 1, device='cuda').expand(N, -1) * time_interval * smooth_term(iteration)
-            d_v1, d_v2, d_v3 = deform.step(
+            d_v1, d_v2, d_v3, d_rot = deform.step(
                 gaussians.pseudomesh[:, 0].detach(),
                 gaussians.pseudomesh[:, 1].detach(),
                 gaussians.pseudomesh[:, 2].detach(),
@@ -103,7 +103,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             )
 
         # Render
-        render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_v1, d_v2, d_v3, dataset.is_6dof)
+        render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_v1, d_v2, d_v3, d_rot,  dataset.is_6dof)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg_re["render"], render_pkg_re[
             "viewspace_points"], render_pkg_re["visibility_filter"], render_pkg_re["radii"]
         # depth = render_pkg_re["depth"]
@@ -111,7 +111,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
         Ll1 = l1_loss(image, gt_image)
-        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+        try:
+            loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+        except:
+            torch.save(d_v1, 'd_v1.pt')
+            torch.save(d_v2, 'd_v2.pt')
+            torch.save(d_v3, 'd_v3.pt')
+
+            torch.save(image, 'image.pt')
+            torch.save(gaussians.get_scaling, 'scaling.pt')
+            torch.save(gaussians.get_rotation, 'rot.pt')
+            torch.save(gaussians.pseudomesh, 'psuedomesh.pt')
+
         loss.backward()
 
         iter_end.record()
@@ -222,13 +233,15 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     fid = viewpoint.fid
                     xyz = scene.gaussians.get_xyz
                     time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-                    d_v1, d_v2, d_v3 = deform.step(
+                    d_v1, d_v2, d_v3, d_rot = deform.step(
                         scene.gaussians.pseudomesh[:, 0].detach(),
                         scene.gaussians.pseudomesh[:, 1].detach(),
-                        scene.gaussians.pseudomesh[:, 2].detach(), time_input
+                        scene.gaussians.pseudomesh[:, 2].detach(),
+                        time_input#,
+                        #scene.gaussians.pseudomesh[:, 3].detach()
                     )
                     image = torch.clamp(
-                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_v1, d_v2, d_v3, is_6dof)["render"],
+                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_v1, d_v2, d_v3, d_rot, is_6dof)["render"],
                         0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     images = torch.cat((images, image.unsqueeze(0)), dim=0)

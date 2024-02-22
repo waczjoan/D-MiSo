@@ -78,8 +78,8 @@ class DeformNetwork(nn.Module):
                 nn.Linear(256, self.time_out))
 
             self.linear = nn.ModuleList(
-                [nn.Linear(xyz_input_ch + self.time_out, W)] + [
-                    nn.Linear(W, W) if i not in self.skips else nn.Linear(W + xyz_input_ch + self.time_out, W)
+                [nn.Linear(3 * xyz_input_ch + self.time_out, W)] + [
+                    nn.Linear(W, W) if i not in self.skips else nn.Linear(W + 3 * xyz_input_ch + self.time_out, W)
                     for i in range(D - 1)]
             )
 
@@ -98,30 +98,40 @@ class DeformNetwork(nn.Module):
             self.branch_v = nn.Linear(W, 3)
         else:
             self.gaussian_warp = nn.Linear(W, 3)
+        self.gaussian_v2 = nn.Linear(W, 3)
+        self.gaussian_v3 = nn.Linear(W, 3)
+        self.gaussian_rot = nn.Linear(W, 3)
+
 
     def forward(self, v1, v2, v3, t):
         t_emb = self.embed_time_fn(t)
         if self.is_blender:
             t_emb = self.timenet(t_emb)  # better for D-NeRF Dataset
-        pm = []
-        for x in [v1, v2, v3]:
-            x_emb = self.embed_fn(x)
-            h = torch.cat([x_emb, t_emb], dim=-1)
-            for i, l in enumerate(self.linear):
-                h = self.linear[i](h)
-                h = F.relu(h)
-                if i in self.skips:
-                    h = torch.cat([x_emb, t_emb, h], -1)
 
-            if self.is_6dof:
-                w = self.branch_w(h)
-                v = self.branch_v(h)
-                theta = torch.norm(w, dim=-1, keepdim=True)
-                w = w / theta + 1e-5
-                v = v / theta + 1e-5
-                screw_axis = torch.cat([w, v], dim=-1)
-                d_xyz = exp_se3(screw_axis, theta)
-            else:
-                d_xyz = self.gaussian_warp(h)
-            pm.append(d_xyz)
-        return pm
+        x1_emb = self.embed_fn(v1)
+        x2_emb = self.embed_fn(v2)
+        x3_emb = self.embed_fn(v3)
+
+        h = torch.cat([x1_emb, x2_emb, x3_emb, t_emb], dim=-1)
+        for i, l in enumerate(self.linear):
+            h = self.linear[i](h)
+            h = F.relu(h)
+            if i in self.skips:
+                h = torch.cat([x1_emb, x2_emb, x3_emb, t_emb, h], -1)
+
+        if self.is_6dof:
+            w = self.branch_w(h)
+            v = self.branch_v(h)
+            theta = torch.norm(w, dim=-1, keepdim=True)
+            w = w / theta + 1e-5
+            v = v / theta + 1e-5
+            screw_axis = torch.cat([w, v], dim=-1)
+            d_xyz = exp_se3(screw_axis, theta)
+        else:
+            d_xyz = self.gaussian_warp(h)
+        #d_v2 = torch.clamp(self.gaussian_v2(h), max=0.0001)
+        #d_v3 = torch.clamp(self.gaussian_v3(h), max=0.0001)
+        d_v2 = self.gaussian_v2(h)
+        d_v3 = self.gaussian_v3(h)
+        d_rot = self.gaussian_rot(h)
+        return d_xyz, d_v2, d_v3, d_rot
