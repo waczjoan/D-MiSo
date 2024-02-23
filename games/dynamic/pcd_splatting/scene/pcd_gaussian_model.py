@@ -87,7 +87,7 @@ class PcdGaussianModel(GaussianModel):
         scales = self.get_scaling
         rotation = self._rotation
         pseudomesh = self.create_faces(xyz, scales, rotation)
-        self.pseudomesh = pseudomesh
+        self.pseudomesh = nn.Parameter(pseudomesh.contiguous().requires_grad_(True))
         #self.idx_faces = torch.arange(0, pseudomesh.shape[0]).cuda()
 
     @staticmethod
@@ -157,7 +157,7 @@ class PcdGaussianModel(GaussianModel):
         s3[mask] = s2[mask]/10
         scales = torch.cat([s2, s3], dim=1)
         _scaling = self.scaling_inverse_activation(scales)
-        _scaling = torch.clamp(_scaling, max=-5)
+        #_scaling = torch.clamp(_scaling, max=-6)
 
         rotation = torch.stack([r1, r2, r3], dim=1)
         rotation = rotation.transpose(-2, -1)
@@ -204,6 +204,33 @@ class PcdGaussianModel(GaussianModel):
         self.init_pseudomesh(fused_point_cloud)
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
 
+    def compaction(self, n=10):
+        # Extract points that satisfy the gradient condition
+        pseudo_dist = torch.abs(self.pseudomesh.grad).sum(dim=1).sum(dim=1)
+        sorted, indices = torch.sort(pseudo_dist)
+        selected_gaussians = indices[-n:]
+        new_pseudomesh = self.pseudomesh[selected_gaussians]
+        v1 = new_pseudomesh[:, 0]
+        v2 = new_pseudomesh[:, 1]
+        v3 = new_pseudomesh[:, 2]
+
+        m = new_pseudomesh.sum(dim=1) / 3
+        tr1 = torch.stack([m, v1, v2], dim=1) * 2 - m.unsqueeze(1)
+        tr2 = torch.stack([m, v2, v3], dim=1) * 2 - m.unsqueeze(1)
+        tr3 = torch.stack([m, v3, v1], dim=1) * 2 - m.unsqueeze(1)
+
+        new_pseudomesh = torch.vstack([tr1, tr2, tr3])
+
+        new_features_dc = self._features_dc[selected_gaussians].repeat(3, 1, 1, 1).reshape(3 * n, 1, 3)
+        new_features_rest = self._features_rest[selected_gaussians].repeat(3, 1, 1, 1).reshape(3 * n, 15, 3)
+        new_opacities = self._opacity[selected_gaussians].repeat(3, 1, 1).reshape(3 * n, 1)
+        new_opacities = new_opacities + torch.rand_like(new_opacities) * 0.001
+        self._opacity[selected_gaussians] = 0
+
+        self.densification_postfix(new_pseudomesh, new_features_dc, new_features_rest, new_opacities)
+
+        return selected_gaussians
+
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
         # Extract points that satisfy the gradient condition
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
@@ -238,16 +265,6 @@ class PcdGaussianModel(GaussianModel):
         new_scaling = self.get_scaling[selected_pts_mask].repeat(N,1) / (0.8*N)
         new_rotation = self._rotation[selected_pts_mask].repeat(N,1)
         new_pseudomesh = self.create_faces(new_xyz, new_scaling, new_rotation)
-        """
-        last_idx = self.idx_faces[-1] + 1
-        self.idx_faces = torch.cat(
-            [
-                self.idx_faces,
-                torch.arange(last_idx, last_idx + new_pseudomesh.shape[0]).cuda()
-            ]
-        )
-        """
-
         new_features_dc = self._features_dc[selected_pts_mask].repeat(N, 1, 1)
         new_features_rest = self._features_rest[selected_pts_mask].repeat(N, 1, 1)
         new_opacity = self._opacity[selected_pts_mask].repeat(N, 1)
@@ -300,6 +317,11 @@ class PcdGaussianModel(GaussianModel):
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+
+    def add_densification_stats(self, viewspace_point_tensor_grad, update_filter):
+        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor_grad[update_filter, :2], dim=-1,
+                                                             keepdim=True)
+        self.denom[update_filter] += 1
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         grads = self.xyz_gradient_accum / self.denom
