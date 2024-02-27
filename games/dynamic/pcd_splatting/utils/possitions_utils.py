@@ -54,9 +54,12 @@ class Embedder:
     def embed(self, inputs):
         return torch.cat([fn(inputs) for fn in self.embed_fns], -1)
 
+class Sin(nn.Module):
+    def forward(self, input):
+        return torch.sin(input)
 
 class DeformNetwork(nn.Module):
-    def __init__(self, D=4, W=128, input_ch=3, output_ch=59, multires=10, is_blender=False, is_6dof=False):
+    def __init__(self, D=8, W=256, input_ch=3, output_ch=59, multires=10, is_blender=False, is_6dof=False):
         super(DeformNetwork, self).__init__()
         self.D = D
         self.W = W
@@ -78,8 +81,8 @@ class DeformNetwork(nn.Module):
                 nn.Linear(256, self.time_out))
 
             self.linear = nn.ModuleList(
-                [nn.Linear(3 * xyz_input_ch + self.time_out, W)] + [
-                    nn.Linear(W, W) if i not in self.skips else nn.Linear(W + 3 * xyz_input_ch + self.time_out, W)
+                [nn.Linear(xyz_input_ch + self.time_out, W)] + [
+                    nn.Linear(W, W) if i not in self.skips else nn.Linear(W + xyz_input_ch + self.time_out, W)
                     for i in range(D - 1)]
             )
 
@@ -112,12 +115,13 @@ class DeformNetwork(nn.Module):
         x2_emb = self.embed_fn(v2)
         x3_emb = self.embed_fn(v3)
 
-        h = torch.cat([x1_emb, x2_emb, x3_emb, t_emb], dim=-1)
+        h1 = x1_emb * x2_emb * x3_emb
+        h = torch.cat([h1, t_emb], dim=-1)
         for i, l in enumerate(self.linear):
             h = self.linear[i](h)
             h = F.relu(h)
             if i in self.skips:
-                h = torch.cat([x1_emb, x2_emb, x3_emb, t_emb, h], -1)
+                h = torch.cat([h1, t_emb, h], -1)
 
         if self.is_6dof:
             w = self.branch_w(h)
