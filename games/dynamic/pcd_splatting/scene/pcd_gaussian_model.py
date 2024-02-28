@@ -38,8 +38,6 @@ class PcdGaussianModel(GaussianModel):
         self.scaling_activation = lambda x: torch.exp(x)
         self.scaling_inverse_activation = lambda x: torch.log(x)
         self.deform_model = DeformModel(is_blender, is_6dof)
-        print(is_blender, is_6dof)
-        exit()
 
     @property
     def get_xyz(self):
