@@ -317,7 +317,7 @@ if __name__ == "__main__":
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int,
-                        default=[5000, 6000, 7_000] + list(range(80000, 80001, 1000)))
+                        default=[5000, 6000, 7_000] + list(range(8000, 80001, 1000)))
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[1_000, 7_000, 10_000, 20_000, 30_000, 40000, 50_000, 60_000, 70_000, 80000])
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(sys.argv[1:])
