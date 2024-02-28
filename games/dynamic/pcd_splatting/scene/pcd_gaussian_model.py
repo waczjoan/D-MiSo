@@ -30,14 +30,16 @@ from utils.system_utils import mkdir_p
 
 class PcdGaussianModel(GaussianModel):
 
-    def __init__(self, sh_degree: int):
+    def __init__(self, sh_degree: int, is_blender: bool, is_6dof: bool):
         super().__init__(sh_degree)
         self.pseudomesh = torch.empty(0)
         self.eps_s0 = 1e-8
 
         self.scaling_activation = lambda x: torch.exp(x)
         self.scaling_inverse_activation = lambda x: torch.log(x)
-        self.deform_model = DeformModel(True, False)
+        self.deform_model = DeformModel(is_blender, is_6dof)
+        print(is_blender, is_6dof)
+        exit()
 
     @property
     def get_xyz(self):

@@ -175,7 +175,7 @@ def render_set(model_path, load2gpu_on_the_fly, is_6dof, name, iteration, views,
 def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, skip_train: bool, skip_test: bool,
                 mode: str):
     with torch.no_grad():
-        gaussians = PcdGaussianModel(dataset.sh_degree)
+        gaussians = PcdGaussianModel(dataset.sh_degree, dataset.is_blender, dataset.is_6dof)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
         deform = gaussians.deform_model
         deform.load_weights(dataset.model_path)
