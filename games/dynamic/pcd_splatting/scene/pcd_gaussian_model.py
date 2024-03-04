@@ -98,17 +98,18 @@ class PcdGaussianModel(GaussianModel):
     def setup_mini_gauss(self, num_splats = 4):
         self.num_splats = num_splats
         num = self.pseudomesh.shape[0] * num_splats
-        alpha = torch.rand(
+        alpha = torch.zeros(
             self.pseudomesh.shape[0],
             num_splats,
             3
         )
+        alpha[:, :, 0] = 1.0
         self.alpha = nn.Parameter(alpha.contiguous().cuda().requires_grad_(True))
-        features_dc = self._features_dc.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
-        features_rest = self._features_rest.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
+        features_dc = self._features_dc.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone() / num_splats
+        features_rest = self._features_rest.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone() / num_splats
         self.mini_features_dc = nn.Parameter(features_dc.cuda().requires_grad_(True))
         self.mini_features_rest = nn.Parameter(features_rest.cuda().requires_grad_(True))
-        opacity = self._opacity.unsqueeze(1).expand(-1, num_splats, -1).flatten(start_dim=0, end_dim=1).clone()
+        opacity = self._opacity.unsqueeze(1).expand(-1, num_splats, -1).flatten(start_dim=0, end_dim=1).clone() / num_splats
         self.mini_opacity = nn.Parameter(opacity.cuda().requires_grad_(True))
         scale = torch.ones((num, 1)).float()
         self.mini_scale = nn.Parameter(scale.contiguous().cuda().requires_grad_(True))
