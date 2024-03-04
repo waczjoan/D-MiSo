@@ -56,17 +56,6 @@ class PcdGaussianModel(GaussianModel):
         return self.rotation_activation(self._rotation)
     
     @property
-    def calc_mini_gauss(self):
-        if not self.mini_gauss:
-            return torch.empty(0, device="cuda")
-        
-        self.mini = torch.bmm(
-            self.alpha,
-            self.pseudomesh
-        ).reshape(-1, 3)
-        return self.mini
-    
-    @property
     def get_mini_shs(self):
         if not self.mini_gauss:
             return torch.empty(0, device="cuda")
@@ -81,6 +70,16 @@ class PcdGaussianModel(GaussianModel):
             return torch.empty(0, device="cuda")
         
         return self.opacity_activation(self.mini_opacity)
+    
+    def calc_mini_gauss(self, v1, v2, v3):
+        if not self.mini_gauss:
+            return torch.empty(0, device="cuda")
+        
+        self.mini = torch.bmm(
+            self.alpha,
+            torch.stack((v1, v2, v3), dim=1)
+        ).reshape(-1, 3)
+        return self.mini
     
     def get_mini_scales(self, scales):
         if not self.mini_gauss:
@@ -413,11 +412,17 @@ class PcdGaussianModel(GaussianModel):
         attrs = self.__dict__
         additional_attrs = [
             'pseudomesh',
+            'alpha',
+            'mini_scale',
+            'mini_opacity',
+            'mini_features_dc',
+            'mini_features_rest'
         ]
 
         save_dict = {}
         for attr_name in additional_attrs:
-            save_dict[attr_name] = attrs[attr_name]
+            if hasattr(self, attr_name):
+                save_dict[attr_name] = attrs[attr_name]
 
         path_model = path.replace('point_cloud.ply', 'model_params.pt')
         torch.save(save_dict, path_model)
@@ -429,6 +434,16 @@ class PcdGaussianModel(GaussianModel):
         params = torch.load(path_model)
         if 'pseudomesh' in params:
             self.pseudomesh = nn.Parameter(params['pseudomesh'])
+        if 'alpha' in params:
+            self.alpha = nn.Parameter(params['alpha'])
+        if 'mini_scale' in params:
+            self.mini_scale = nn.Parameter(params['mini_scale'])
+        if 'mini_opacity' in params:
+            self.mini_opacity = nn.Parameter(params['mini_opacity'])
+        if 'mini_features_dc' in params:
+            self.mini_features_dc = nn.Parameter(params['mini_features_dc'])
+        if 'mini_features_rest' in params:
+            self.mini_features_rest = nn.Parameter(params['mini_features_rest'])
         
         #if 'idx_faces' in params:
         #    self.idx_faces = params['idx_faces']
