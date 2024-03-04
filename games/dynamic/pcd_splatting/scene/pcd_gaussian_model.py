@@ -39,6 +39,9 @@ class PcdGaussianModel(GaussianModel):
         self.scaling_inverse_activation = lambda x: torch.log(x)
         self.deform_model = DeformModel(is_blender, is_6dof)
 
+        self.mini_gauss = True
+        self.mini = torch.empty(0, device="cuda")
+
     @property
     def get_xyz(self):
         return self.pseudomesh[:, 0]
@@ -51,11 +54,78 @@ class PcdGaussianModel(GaussianModel):
     @property
     def get_rotation(self):
         return self.rotation_activation(self._rotation)
+    
+    @property
+    def calc_mini_gauss(self):
+        if not self.mini_gauss:
+            return torch.empty(0, device="cuda")
+        
+        self.mini = torch.bmm(
+            self.alpha,
+            self.pseudomesh
+        ).reshape(-1, 3)
+        return self.mini
+    
+    @property
+    def get_mini_shs(self):
+        if not self.mini_gauss:
+            return torch.empty(0, device="cuda")
+        
+        features_dc = self.mini_features_dc
+        features_rest = self.mini_features_rest
+        return torch.cat((features_dc, features_rest), dim=1)
+    
+    @property
+    def get_mini_opacity(self):
+        if not self.mini_gauss:
+            return torch.empty(0, device="cuda")
+        
+        return self.opacity_activation(self.mini_opacity)
+    
+    def get_mini_scales(self, scales):
+        if not self.mini_gauss:
+            return torch.empty(0, device="cuda")
+        
+        mini_scales = torch.clamp_min(self.mini_scale * scales.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3), self.eps_s0)
+        return mini_scales
+    
+    def get_mini_rotations(self, rotations):
+        if not self.mini_gauss:
+            return torch.empty(0, device="cuda")
+        
+        mini_rotations = rotations.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 4)
+        return mini_rotations
+    
+    def setup_mini_gauss(self, num_splats = 4):
+        self.num_splats = num_splats
+        num = self.pseudomesh.shape[0] * num_splats
+        alpha = torch.rand(
+            self.pseudomesh.shape[0],
+            num_splats,
+            3
+        )
+        self.alpha = nn.Parameter(alpha.contiguous().cuda().requires_grad_(True))
+        features_dc = self._features_dc.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
+        features_rest = self._features_rest.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
+        self.mini_features_dc = nn.Parameter(features_dc.cuda().requires_grad_(True))
+        self.mini_features_rest = nn.Parameter(features_rest.cuda().requires_grad_(True))
+        opacity = self._opacity.unsqueeze(1).expand(-1, num_splats, -1).flatten(start_dim=0, end_dim=1).clone()
+        self.mini_opacity = nn.Parameter(opacity.cuda().requires_grad_(True))
+        scale = torch.ones((num, 1)).float()
+        self.mini_scale = nn.Parameter(scale.contiguous().cuda().requires_grad_(True))
+
+        self.optimizer.add_param_group({'params': [self.alpha], 'lr': 0.001, "name": "alpha"})
+        self.optimizer.add_param_group({'params': [self.mini_features_dc], 'lr': self.training_args.feature_lr, "name": "mini_f_dc"})
+        self.optimizer.add_param_group({'params': [self.mini_features_rest], 'lr': self.training_args.feature_lr, "name": "mini_f_rest"})
+        self.optimizer.add_param_group({'params': [self.mini_opacity], 'lr': self.training_args.opacity_lr, "name": "mini_opacity"})
+        self.optimizer.add_param_group({'params': [self.mini_scale], 'lr': 0.005, "name": "mini_scale"})
 
     def training_setup(self, training_args):
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.percent_dense = training_args.percent_dense
+
+        self.training_args = training_args
 
         l_params = [
             {'params': [self.pseudomesh], 'lr': training_args.psuedomesh_lr, "name": "pseudomesh"},

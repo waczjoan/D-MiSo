@@ -73,8 +73,11 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
                 torch.bmm(d_v1, to_homogenous(pc.get_xyz).unsqueeze(-1)).squeeze(-1))
     else:
         means3D = pc.get_xyz + d_v1
+        means3D = torch.cat((means3D, pc.calc_mini_gauss))
+        screenspace_points = torch.zeros_like(means3D, requires_grad=True, device="cuda") #torch.cat((screenspace_points, torch.zeros_like(pc.mini, dtype=pc.get_xyz.dtype, requires_grad=True, device="cuda")))
     means2D = screenspace_points
     opacity = pc.get_opacity
+    opacity = torch.cat((opacity, pc.get_mini_opacity))
 
     # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
     # scaling / rotation by the rasterizer.
@@ -98,7 +101,9 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
         scales, rotations = pc._prepare_scaling_rot(v1, v2, v3)
         s0 = torch.ones(scales.shape[0], 1).cuda() * pc.eps_s0
         scales = torch.cat([s0, pc.scaling_activation(scales[:, [-2, -1]])], dim=1)
+        scales = torch.cat((scales, pc.get_mini_scales(scales)))
         rotations = pc.rotation_activation(rotations)
+        rotations = torch.cat((rotations, pc.get_mini_rotations(rotations)))
 
     # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors
     # from SHs in Python, do it. If not, then SH -> RGB conversion will be done by rasterizer.
@@ -113,6 +118,7 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
             colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0)
         else:
             shs = pc.get_features
+            shs = torch.cat((shs, pc.get_mini_shs))
     else:
         colors_precomp = override_color
 

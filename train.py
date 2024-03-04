@@ -40,6 +40,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
 
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
+    gaussians.mini_gauss = False
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -119,18 +120,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             # Loss
             gt_image = viewpoint_cam.original_image.cuda()
             Ll1 = l1_loss(image, gt_image)
-            try:
-                loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
-            except:
-                torch.save(d_v1, 'd_v1.pt')
-                torch.save(d_v2, 'd_v2.pt')
-                torch.save(d_v3, 'd_v3.pt')
-
-                torch.save(image, 'image.pt')
-                torch.save(gaussians.get_scaling, 'scaling.pt')
-                torch.save(gaussians.get_rotation, 'rot.pt')
-                torch.save(gaussians.pseudomesh, 'psuedomesh.pt')
-
+            loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
             loss.backward()
 
             iter_end.record()
@@ -148,10 +138,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 if iteration == opt.iterations:
                     if i==0:
                         progress_bar.close()
-
-                # Keep track of max radii in image-space for pruning
-                gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter],
-                                                                     radii[visibility_filter])
 
                 # Log and save
                 cur_psnr = training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end),
@@ -171,24 +157,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
 
                 # add Gaussians where is moving
                 viewspace_point_tensor_grad = viewspace_point_tensor.grad
-                """
-                a = gaussians.pseudomesh.grad
-                if (iteration >= opt.warm_up) and (iteration % ( 2 * opt.densification_interval) == 0) and (iteration < opt.densify_until_iter):
-                    inxs = gaussians.compaction(n=5)
-                    _view = viewspace_point_tensor.grad[inxs]
-                    viewspace_point_tensor_grad = torch.vstack(
-                        [
-                            viewspace_point_tensor.grad,
-                            _view, _view, _view
-                        ]
-                    )
-                    _vis = visibility_filter[inxs]
-                    visibility_filter = torch.hstack([visibility_filter, _vis, _vis, _vis])
-                """
-
 
                 # Densification
                 if iteration < opt.densify_until_iter:
+                    # Keep track of max radii in image-space for pruning
+                    gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter],
+                                                                        radii[visibility_filter])
                     if i == j-1:
                         gaussians.add_densification_stats(viewspace_point_tensor_grad, visibility_filter)
 
@@ -199,7 +173,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                         if iteration % opt.opacity_reset_interval == 0 or (
                                 dataset.white_background and iteration == opt.densify_from_iter):
                             gaussians.reset_opacity()
-
+                elif iteration == opt.densify_until_iter:
+                    gaussians.setup_mini_gauss()
+                    gaussians.mini_gauss = True
 
                 # Optimizer step
                 if iteration < opt.iterations:
