@@ -85,16 +85,7 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
     if pipe.compute_cov3D_python:
         cov3D_precomp = pc.get_covariance(scaling_modifier)
     else:
-        v1 = pc.pseudomesh[:, 0]
-        v2 = pc.pseudomesh[:, 1]
-        v3 = pc.pseudomesh[:, 2]
-
-        _v2 = v2 - v1
-        _v3 = v3 - v1
-
-        v1 = v1 + d_v1
-        v2 = v2 + d_v1 + _v2/torch.linalg.vector_norm(_v2, dim=-1, keepdim=True) * d_v2 + d_rot
-        v3 = v3 + d_v1 + _v3/torch.linalg.vector_norm(_v3, dim=-1, keepdim=True) * d_v3 + d_rot
+        v1, v2, v3 = pc.calc_vertices(d_v1, d_v2, d_v3, d_rot)
 
         scales, rotations = pc._prepare_scaling_rot(v1, v2, v3)
         s0 = torch.ones(scales.shape[0], 1).cuda() * pc.eps_s0

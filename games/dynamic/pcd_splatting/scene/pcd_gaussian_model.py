@@ -74,12 +74,20 @@ class PcdGaussianModel(GaussianModel):
     def calc_mini_gauss(self, v1, v2, v3):
         if not self.mini_gauss:
             return torch.empty(0, device="cuda")
-        
+
+        v2_v1 = v2 - v1
+        v3_v1 = v3 - v1
+        normal = torch.cross(
+            v2_v1,
+            v3_v1
+        )
+        normal = normal / torch.linalg.vector_norm(normal, dim=-1, keepdim=True)
+
         self.mini = torch.bmm(
             self.alpha,
-            torch.stack((v1, v2, v3), dim=1)
+            torch.stack((normal, v2 - v1, v3 - v1), dim=1)
         ).reshape(-1, 3)
-        return self.mini
+        return self.mini + v1.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3)
     
     def get_mini_scales(self, scales):
         if not self.mini_gauss:
@@ -97,13 +105,24 @@ class PcdGaussianModel(GaussianModel):
     
     def setup_mini_gauss(self, num_splats = 4):
         self.num_splats = num_splats
-        num = self.pseudomesh.shape[0] * num_splats
+        num_gauss = min(
+            50000,
+            self.pseudomesh.shape[0]
+        )
+        print("Number of gaussians:", self.pseudomesh.shape[0])
+        print("Number of super gaussians:", num_gauss)
+        idx = np.random.choice(self.pseudomesh.shape[0], num_gauss)
+        num = num_gauss * num_splats
+        self.pseudomesh = self.pseudomesh[idx]
+        self._opacity = self._opacity[idx]
+        self._features_dc = self._features_dc[idx]
+        self._features_rest = self._features_rest[idx]
         alpha = torch.zeros(
-            self.pseudomesh.shape[0],
+            num_gauss,
             num_splats,
             3
         )
-        alpha[:, :, 0] = 1.0
+        # alpha[:, :, 0] = 1.0
         self.alpha = nn.Parameter(alpha.contiguous().cuda().requires_grad_(True))
         features_dc = self._features_dc.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
         features_rest = self._features_rest.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
@@ -119,6 +138,20 @@ class PcdGaussianModel(GaussianModel):
         self.optimizer.add_param_group({'params': [self.mini_features_rest], 'lr': self.training_args.feature_lr, "name": "mini_f_rest"})
         self.optimizer.add_param_group({'params': [self.mini_opacity], 'lr': self.training_args.opacity_lr, "name": "mini_opacity"})
         self.optimizer.add_param_group({'params': [self.mini_scale], 'lr': 0.005, "name": "mini_scale"})
+
+    def calc_vertices(self, d_v1, d_v2, d_v3, d_rot):
+        v1 = self.pseudomesh[:, 0]
+        v2 = self.pseudomesh[:, 1]
+        v3 = self.pseudomesh[:, 2]
+
+        _v2 = v2 - v1
+        _v3 = v3 - v1
+
+        v1 = v1 + d_v1
+        v2 = v2 + d_v1 + _v2/torch.linalg.vector_norm(_v2, dim=-1, keepdim=True) * d_v2 + d_rot
+        v3 = v3 + d_v1 + _v3/torch.linalg.vector_norm(_v3, dim=-1, keepdim=True) * d_v3 + d_rot
+
+        return v1, v2, v3
 
     def training_setup(self, training_args):
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")

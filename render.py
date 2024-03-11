@@ -35,6 +35,8 @@ def render_set(model_path, load2gpu_on_the_fly, is_6dof, name, iteration, views,
     makedirs(gts_path, exist_ok=True)
     makedirs(depth_path, exist_ok=True)
 
+    time_data = dict()
+
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         if load2gpu_on_the_fly:
             view.load2device()
@@ -47,6 +49,13 @@ def render_set(model_path, load2gpu_on_the_fly, is_6dof, name, iteration, views,
             gaussians.pseudomesh[:, 2].detach(),
             time_input
         )
+        v1, v2, v3 = gaussians.calc_vertices(d_v1, d_v2, d_v3, d_rot)
+        normal_vector = torch.cross(
+            v2 - v1,
+            v3 - v1
+        )
+        normal_vector /= torch.linalg.vector_norm(normal_vector, dim=-1, keepdim=True)
+        time_data[fid.cpu().item()] = {"normal": normal_vector, "v1": v1, "v2": v2, "v3": v3}
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
         rendering = results["render"]
         #depth = results["depth"]
@@ -56,6 +65,11 @@ def render_set(model_path, load2gpu_on_the_fly, is_6dof, name, iteration, views,
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         #torchvision.utils.save_image(depth, os.path.join(depth_path, '{0:05d}'.format(idx) + ".png"))
+
+    if name == "train":
+        import pickle
+        with open(os.path.join(render_path, 'saved_dictionary.pkl'), 'wb') as f:
+            pickle.dump(time_data, f)
 
 
 def interpolate_time(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, views, gaussians, pipeline, background, deform):

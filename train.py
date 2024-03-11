@@ -41,6 +41,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
     gaussians.mini_gauss = False
+    # with torch.no_grad():
+    #     gaussians.setup_mini_gauss()
+    #     gaussians.mini_gauss = True
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -173,7 +176,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                         if iteration % opt.opacity_reset_interval == 0 or (
                                 dataset.white_background and iteration == opt.densify_from_iter):
                             gaussians.reset_opacity()
-                elif iteration == opt.densify_until_iter:
+                elif iteration == opt.densify_until_iter and not gaussians.mini_gauss:
                     gaussians.setup_mini_gauss()
                     gaussians.mini_gauss = True
 
