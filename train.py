@@ -76,6 +76,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
 
         iter_start.record()
 
+        if iteration % 1000 == 0:
+            gaussians.oneupSHdegree()
+
         # Pick a random Camera
         if not viewpoint_stack:
             viewpoint_stack = scene.getTrainCameras().copy()
@@ -83,26 +86,22 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         total_frame = len(viewpoint_stack)
         time_interval = 1 / total_frame
 
-        viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack) - 1))
-        if dataset.load2gpu_on_the_fly:
-            viewpoint_cam.load2device()
-        fid = viewpoint_cam.fid
+        BATCH_SIZE = args.batch_size
+        batch_loss = 0.0
+        batch_loss_l1 = 0.0
+        skip_window = 0
+        cam_idx = randint(0, len(viewpoint_stack) - BATCH_SIZE)
+        for i in range(BATCH_SIZE):
+            # Pick a random Camera
+            viewpoint_cam = viewpoint_stack.pop(cam_idx + skip_window)
+            if dataset.load2gpu_on_the_fly:
+                viewpoint_cam.load2device()
+            fid = viewpoint_cam.fid
 
-        N = gaussians.get_xyz.shape[0]
-        time_input = fid.unsqueeze(0).expand(N, -1)
+            N = gaussians.get_xyz.shape[0]
+            time_input = fid.unsqueeze(0).expand(N, -1)
 
-        ast_noise = 0 if dataset.is_blender else torch.randn(1, 1, device='cuda').expand(N,-1) * time_interval * smooth_term( iteration)
-
-        #if iteration < opt.warm_up:
-        j = 1
-        #else:
-        #    j = 10
-        for i in range(j):
-
-            # Every 1000 its we increase the levels of SH up to a maximum degree
-            if iteration % 1000 == 0:
-                if  i == 0:
-                    gaussians.oneupSHdegree()
+            ast_noise = 0 if dataset.is_blender else torch.randn(1, 1, device='cuda').expand(N,-1) * time_interval * smooth_term( iteration)
 
             if iteration < opt.warm_up:
                 d_v1, d_v2, d_v3, d_rot = 0.0, 0.0, 0.0, 0.0
@@ -124,75 +123,73 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             gt_image = viewpoint_cam.original_image.cuda()
             Ll1 = l1_loss(image, gt_image)
             loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
-            loss.backward()
+            batch_loss_l1 += Ll1
+            batch_loss += loss
+        
+        batch_loss_l1 = batch_loss_l1/BATCH_SIZE
+        batch_loss = batch_loss/BATCH_SIZE
+        batch_loss.backward()
 
-            iter_end.record()
+        iter_end.record()
 
-            if dataset.load2gpu_on_the_fly:
-                viewpoint_cam.load2device('cpu')
+        if dataset.load2gpu_on_the_fly:
+            viewpoint_cam.load2device('cpu')
 
-            with torch.no_grad():
-                # Progress bar
-                ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
-                if iteration % 10 == 0:
-                    if i == 0:
-                        progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}"})
-                        progress_bar.update(10)
-                if iteration == opt.iterations:
-                    if i==0:
-                        progress_bar.close()
+        with torch.no_grad():
+            # Progress bar
+            ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
+            if iteration % 10 == 0:
+                progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}"})
+                progress_bar.update(10)
+            if iteration == opt.iterations:
+                progress_bar.close()
 
-                # Log and save
-                cur_psnr = training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end),
-                                           testing_iterations, scene, render, (pipe, background), deform,
-                                           dataset.load2gpu_on_the_fly, dataset.is_6dof)
-                if iteration in testing_iterations:
-                    if i == 0:
-                        if cur_psnr.item() > best_psnr:
-                            best_psnr = cur_psnr.item()
-                            best_iteration = iteration
+            # Log and save
+            cur_psnr = training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end),
+                                    testing_iterations, scene, render, (pipe, background), deform,
+                                    dataset.load2gpu_on_the_fly, dataset.is_6dof)
+            if iteration in testing_iterations:
+                if cur_psnr.item() > best_psnr:
+                    best_psnr = cur_psnr.item()
+                    best_iteration = iteration
 
-                if iteration in saving_iterations:
-                    if i == 0:
-                        print("\n[ITER {}] Saving Gaussians".format(iteration))
-                        scene.save(iteration)
-                        deform.save_weights(args.model_path, iteration)
+            if iteration in saving_iterations:
+                print("\n[ITER {}] Saving Gaussians".format(iteration))
+                scene.save(iteration)
+                deform.save_weights(args.model_path, iteration)
 
-                # add Gaussians where is moving
-                viewspace_point_tensor_grad = viewspace_point_tensor.grad
+            # add Gaussians where is moving
+            viewspace_point_tensor_grad = viewspace_point_tensor.grad
 
-                # Densification
-                if iteration < opt.densify_until_iter:
-                    # Keep track of max radii in image-space for pruning
-                    gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter],
-                                                                        radii[visibility_filter])
-                    if i == j-1:
-                        gaussians.add_densification_stats(viewspace_point_tensor_grad, visibility_filter)
+            # Densification
+            if iteration < opt.densify_until_iter:
+                # Keep track of max radii in image-space for pruning
+                gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter],
+                                                                    radii[visibility_filter])
+                gaussians.add_densification_stats(viewspace_point_tensor_grad, visibility_filter)
 
-                        if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
-                            size_threshold = 20 if iteration > opt.opacity_reset_interval else None
-                            gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold)
+                if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
+                    size_threshold = 20 if iteration > opt.opacity_reset_interval else None
+                    gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold)
 
-                        if iteration % opt.opacity_reset_interval == 0 or (
-                                dataset.white_background and iteration == opt.densify_from_iter):
-                            gaussians.reset_opacity()
-                elif iteration == opt.densify_until_iter and not gaussians.mini_gauss:
-                    gaussians.setup_mini_gauss()
-                    gaussians.mini_gauss = True
+                if iteration % opt.opacity_reset_interval == 0 or (
+                        dataset.white_background and iteration == opt.densify_from_iter):
+                    gaussians.reset_opacity()
+            elif iteration == opt.densify_until_iter and not gaussians.mini_gauss:
+                gaussians.setup_mini_gauss()
+                gaussians.mini_gauss = True
 
-                # Optimizer step
-                if iteration < opt.iterations:
-                    gaussians.optimizer.step()
-                    if i == 0:
-                        gaussians.update_learning_rate(iteration)
-                    deform.optimizer.step()
-                    gaussians.optimizer.zero_grad(set_to_none=True)
-                    deform.optimizer.zero_grad()
-                    if i == 0:
-                        deform.update_learning_rate(iteration)
+            # Optimizer step
+            if iteration < opt.iterations:
+                gaussians.optimizer.step()
+                gaussians.update_learning_rate(iteration)
+                deform.optimizer.step()
+                gaussians.optimizer.zero_grad(set_to_none=True)
+                deform.optimizer.zero_grad()
+                deform.update_learning_rate(iteration)
 
-                if hasattr(gaussians, 'prepare_scaling_rot'):
-                    gaussians.prepare_scaling_rot()
+            if hasattr(gaussians, 'prepare_scaling_rot'):
+                gaussians.prepare_scaling_rot()
 
     print("Best PSNR = {} in Iteration {}".format(best_psnr, best_iteration))
 
@@ -298,6 +295,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_iterations", nargs="+", type=int,
                         default=[5000, 6000, 7_000] + list(range(8000, 80001, 1000)))
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[1_000, 7_000, 10_000, 20_000, 30_000, 40000, 50_000, 60_000, 70_000, 80000])
+    parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
