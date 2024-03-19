@@ -75,7 +75,9 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
         means3D = pc.get_xyz + d_v1
 
     opacity = pc.get_opacity
-    opacity = torch.cat((opacity, pc.get_mini_opacity))
+    # opacity = torch.cat((opacity, pc.get_attached_opacity))
+    if pc.use_attached_gauss:
+        opacity = pc.get_attached_opacity
 
     # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
     # scaling / rotation by the rasterizer.
@@ -90,11 +92,18 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
         scales, rotations = pc._prepare_scaling_rot(v1, v2, v3)
         s0 = torch.ones(scales.shape[0], 1).cuda() * pc.eps_s0
         scales = torch.cat([s0, pc.scaling_activation(scales[:, [-2, -1]])], dim=1)
-        scales = torch.cat((scales, pc.get_mini_scales(scales)))
+        # scales = torch.cat((scales, pc.get_attached_scales(scales)))
+        if pc.use_attached_gauss:
+            scales = pc.get_attached_scales(scales)
+
         rotations = pc.rotation_activation(rotations)
-        rotations = torch.cat((rotations, pc.get_mini_rotations(rotations)))
-    
-        means3D = torch.cat((means3D, pc.calc_mini_gauss(v1, v2, v3)))
+        # rotations = torch.cat((rotations, pc.get_attached_rotations(rotations)))
+        if pc.use_attached_gauss:
+            rotations = pc.get_attached_rotations(rotations)
+
+        # means3D = torch.cat((means3D, pc.calc_attached_gauss(v1, v2, v3)))
+        if pc.use_attached_gauss:
+            means3D = pc.calc_attached_gauss(v1, v2, v3)
         screenspace_points = torch.zeros_like(means3D, requires_grad=True, device="cuda")
         means2D = screenspace_points
 
@@ -111,7 +120,9 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
             colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0)
         else:
             shs = pc.get_features
-            shs = torch.cat((shs, pc.get_mini_shs))
+            # shs = torch.cat((shs, pc.get_attached_shs))
+            if pc.use_attached_gauss:
+                shs = pc.get_attached_shs
     else:
         colors_precomp = override_color
 

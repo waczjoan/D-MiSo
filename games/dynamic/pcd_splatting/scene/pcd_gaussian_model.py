@@ -23,10 +23,11 @@ from utils.general_utils import (
     rot_to_quat_batch,
     build_rotation,
     inverse_sigmoid,
-    get_expon_lr_func
+    get_expon_lr_func,
 )
 from games.dynamic.pcd_splatting.scene.deform_model import DeformModel
 from utils.system_utils import mkdir_p
+from gaussian_renderer import quaternion_multiply
 
 class PcdGaussianModel(GaussianModel):
 
@@ -39,7 +40,7 @@ class PcdGaussianModel(GaussianModel):
         self.scaling_inverse_activation = lambda x: torch.log(x)
         self.deform_model = DeformModel(is_blender, is_6dof)
 
-        self.mini_gauss = True
+        self.use_attached_gauss = True
         self.mini = torch.empty(0, device="cuda")
 
     @property
@@ -56,27 +57,43 @@ class PcdGaussianModel(GaussianModel):
         return self.rotation_activation(self._rotation)
     
     @property
-    def get_mini_shs(self):
-        if not self.mini_gauss:
+    def get_attached_shs(self):
+        if not self.use_attached_gauss:
             return torch.empty(0, device="cuda")
         
-        features_dc = self.mini_features_dc
-        features_rest = self.mini_features_rest
+        features_dc = self.attached_features_dc
+        features_rest = self.attached_features_rest
         return torch.cat((features_dc, features_rest), dim=1)
     
     @property
-    def get_mini_opacity(self):
-        if not self.mini_gauss:
+    def get_attached_opacity(self):
+        if not self.use_attached_gauss:
             return torch.empty(0, device="cuda")
         
-        return self.opacity_activation(self.mini_opacity)
+        return self.opacity_activation(self.attached_opacity)
     
-    def calc_mini_gauss(self, v1, v2, v3):
-        if not self.mini_gauss:
+    def get_attached_scales(self, scales):
+        if not self.use_attached_gauss:
+            return torch.empty(0, device="cuda")
+        
+        attached_scales = torch.clamp_min(self.attached_scale * scales.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3), self.eps_s0)
+        return attached_scales
+    
+    def get_attached_rotations(self, rotations):
+        if not self.use_attached_gauss:
+            return torch.empty(0, device="cuda")
+        
+        attached_rotations = quaternion_multiply(self.rotation_activation(self.attached_rotation), rotations.unsqueeze(dim=1))
+        return attached_rotations.reshape(-1, 4)
+    
+    def calc_attached_gauss(self, v1, v2, v3):
+        if not self.use_attached_gauss:
             return torch.empty(0, device="cuda")
 
         v2_v1 = v2 - v1
         v3_v1 = v3 - v1
+        v2_v1 = v2_v1 / torch.linalg.vector_norm(v2_v1, dim=-1, keepdim=True)
+        v3_v1 = v3_v1 / torch.linalg.vector_norm(v3_v1, dim=-1, keepdim=True)
         normal = torch.cross(
             v2_v1,
             v3_v1
@@ -85,28 +102,14 @@ class PcdGaussianModel(GaussianModel):
 
         self.mini = torch.bmm(
             self.alpha,
-            torch.stack((normal, v2 - v1, v3 - v1), dim=1)
+            torch.stack((normal, v2_v1, v3_v1), dim=1)
         ).reshape(-1, 3)
         return self.mini + v1.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3)
     
-    def get_mini_scales(self, scales):
-        if not self.mini_gauss:
-            return torch.empty(0, device="cuda")
-        
-        mini_scales = torch.clamp_min(self.mini_scale * scales.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3), self.eps_s0)
-        return mini_scales
-    
-    def get_mini_rotations(self, rotations):
-        if not self.mini_gauss:
-            return torch.empty(0, device="cuda")
-        
-        mini_rotations = rotations.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 4)
-        return mini_rotations
-    
-    def setup_mini_gauss(self, num_splats = 4):
+    def setup_attached_gauss(self, num_splats = 500):
         self.num_splats = num_splats
         num_gauss = min(
-            50000,
+            2_000,
             self.pseudomesh.shape[0]
         )
         print("Number of gaussians:", self.pseudomesh.shape[0])
@@ -126,18 +129,22 @@ class PcdGaussianModel(GaussianModel):
         self.alpha = nn.Parameter(alpha.contiguous().cuda().requires_grad_(True))
         features_dc = self._features_dc.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
         features_rest = self._features_rest.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
-        self.mini_features_dc = nn.Parameter(features_dc.cuda().requires_grad_(True))
-        self.mini_features_rest = nn.Parameter(features_rest.cuda().requires_grad_(True))
+        self.attached_features_dc = nn.Parameter(features_dc.cuda().requires_grad_(True))
+        self.attached_features_rest = nn.Parameter(features_rest.cuda().requires_grad_(True))
         opacity = self._opacity.unsqueeze(1).expand(-1, num_splats, -1).flatten(start_dim=0, end_dim=1).clone()
-        self.mini_opacity = nn.Parameter(opacity.cuda().requires_grad_(True))
+        self.attached_opacity = nn.Parameter(opacity.cuda().requires_grad_(True))
         scale = torch.ones((num, 1)).float()
-        self.mini_scale = nn.Parameter(scale.contiguous().cuda().requires_grad_(True))
+        self.attached_scale = nn.Parameter(scale.contiguous().cuda().requires_grad_(True))
+        rotation = torch.zeros((num_gauss, num_splats, 4)).float()
+        rotation[:, :, 0] = 1.0 # identity rotation quaternion is (1, 0, 0, 0)
+        self.attached_rotation = nn.Parameter(rotation.contiguous().cuda().requires_grad_(True))
 
         self.optimizer.add_param_group({'params': [self.alpha], 'lr': 0.001, "name": "alpha"})
-        self.optimizer.add_param_group({'params': [self.mini_features_dc], 'lr': self.training_args.feature_lr, "name": "mini_f_dc"})
-        self.optimizer.add_param_group({'params': [self.mini_features_rest], 'lr': self.training_args.feature_lr, "name": "mini_f_rest"})
-        self.optimizer.add_param_group({'params': [self.mini_opacity], 'lr': self.training_args.opacity_lr, "name": "mini_opacity"})
-        self.optimizer.add_param_group({'params': [self.mini_scale], 'lr': 0.005, "name": "mini_scale"})
+        self.optimizer.add_param_group({'params': [self.attached_features_dc], 'lr': self.training_args.feature_lr, "name": "attached_f_dc"})
+        self.optimizer.add_param_group({'params': [self.attached_features_rest], 'lr': self.training_args.feature_lr, "name": "attached_f_rest"})
+        self.optimizer.add_param_group({'params': [self.attached_opacity], 'lr': self.training_args.opacity_lr, "name": "attached_opacity"})
+        self.optimizer.add_param_group({'params': [self.attached_scale], 'lr': 0.005, "name": "attached_scale"})
+        self.optimizer.add_param_group({'params': [self.attached_rotation], 'lr': 0.001, "name": "attached_rotation"})
 
     def calc_vertices(self, d_v1, d_v2, d_v3, d_rot):
         v1 = self.pseudomesh[:, 0]
@@ -447,10 +454,11 @@ class PcdGaussianModel(GaussianModel):
         additional_attrs = [
             'pseudomesh',
             'alpha',
-            'mini_scale',
-            'mini_opacity',
-            'mini_features_dc',
-            'mini_features_rest',
+            'attached_scale',
+            'attached_rotation',
+            'attached_opacity',
+            'attached_features_dc',
+            'attached_features_rest',
             'num_splats'
         ]
 
@@ -471,14 +479,16 @@ class PcdGaussianModel(GaussianModel):
             self.pseudomesh = nn.Parameter(params['pseudomesh'])
         if 'alpha' in params:
             self.alpha = nn.Parameter(params['alpha'])
-        if 'mini_scale' in params:
-            self.mini_scale = nn.Parameter(params['mini_scale'])
-        if 'mini_opacity' in params:
-            self.mini_opacity = nn.Parameter(params['mini_opacity'])
-        if 'mini_features_dc' in params:
-            self.mini_features_dc = nn.Parameter(params['mini_features_dc'])
-        if 'mini_features_rest' in params:
-            self.mini_features_rest = nn.Parameter(params['mini_features_rest'])
+        if 'attached_scale' in params:
+            self.attached_scale = nn.Parameter(params['attached_scale'])
+        if 'attached_rotation' in params:
+            self.attached_rotation = nn.Parameter(params['attached_rotation'])
+        if 'attached_opacity' in params:
+            self.attached_opacity = nn.Parameter(params['attached_opacity'])
+        if 'attached_features_dc' in params:
+            self.attached_features_dc = nn.Parameter(params['attached_features_dc'])
+        if 'attached_features_rest' in params:
+            self.attached_features_rest = nn.Parameter(params['attached_features_rest'])
         if 'num_splats' in params:
             self.num_splats = params['num_splats']
         

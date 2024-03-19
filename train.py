@@ -40,10 +40,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
 
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
-    gaussians.mini_gauss = False
+    gaussians.use_attached_gauss = False
     # with torch.no_grad():
-    #     gaussians.setup_mini_gauss()
-    #     gaussians.mini_gauss = True
+    #     gaussians.setup_attached_gauss()
+    #     gaussians.use_attached_gauss = True
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -90,7 +90,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         batch_loss = 0.0
         batch_loss_l1 = 0.0
         skip_window = 0
-        cam_idx = randint(0, len(viewpoint_stack) - BATCH_SIZE)
+        cam_idx = randint(0, max(0, len(viewpoint_stack) - BATCH_SIZE))
         for i in range(BATCH_SIZE):
             # Pick a random Camera
             viewpoint_cam = viewpoint_stack.pop(cam_idx + skip_window)
@@ -175,9 +175,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 if iteration % opt.opacity_reset_interval == 0 or (
                         dataset.white_background and iteration == opt.densify_from_iter):
                     gaussians.reset_opacity()
-            elif iteration == opt.densify_until_iter and not gaussians.mini_gauss:
-                gaussians.setup_mini_gauss()
-                gaussians.mini_gauss = True
+            elif iteration == opt.densify_until_iter and not gaussians.use_attached_gauss:
+                gaussians.setup_attached_gauss()
+                gaussians.use_attached_gauss = True
 
             # Optimizer step
             if iteration < opt.iterations:
