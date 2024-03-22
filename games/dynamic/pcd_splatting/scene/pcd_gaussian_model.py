@@ -76,7 +76,8 @@ class PcdGaussianModel(GaussianModel):
         if not self.use_attached_gauss:
             return torch.empty(0, device="cuda")
         
-        attached_scales = torch.clamp_min(self.attached_scale * scales.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3), self.eps_s0)
+        # attached_scales = torch.clamp_min(self.attached_scale * scales.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3), self.eps_s0)
+        attached_scales = self.scaling_activation(self.attached_scale) * scales.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3)
         return attached_scales
     
     def get_attached_rotations(self, rotations):
@@ -92,24 +93,23 @@ class PcdGaussianModel(GaussianModel):
 
         v2_v1 = v2 - v1
         v3_v1 = v3 - v1
-        v2_v1 = v2_v1 / torch.linalg.vector_norm(v2_v1, dim=-1, keepdim=True)
-        v3_v1 = v3_v1 / torch.linalg.vector_norm(v3_v1, dim=-1, keepdim=True)
         normal = torch.cross(
             v2_v1,
             v3_v1
         )
+        v2_v1 = v2_v1 / torch.linalg.vector_norm(v2_v1, dim=-1, keepdim=True)
+        v3_v1 = v3_v1 / torch.linalg.vector_norm(v3_v1, dim=-1, keepdim=True)
         normal = normal / torch.linalg.vector_norm(normal, dim=-1, keepdim=True)
-
         self.mini = torch.bmm(
             self.alpha,
             torch.stack((normal, v2_v1, v3_v1), dim=1)
         ).reshape(-1, 3)
         return self.mini + v1.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3)
     
-    def setup_attached_gauss(self, num_splats = 500):
+    def setup_attached_gauss(self, num_splats=500, num_gauss=2000):
         self.num_splats = num_splats
         num_gauss = min(
-            2_000,
+            num_gauss,
             self.pseudomesh.shape[0]
         )
         print("Number of gaussians:", self.pseudomesh.shape[0])
@@ -125,7 +125,7 @@ class PcdGaussianModel(GaussianModel):
             num_splats,
             3
         )
-        # alpha[:, :, 0] = 1.0
+        # alpha += torch.randn_like(alpha) * 0.1
         self.alpha = nn.Parameter(alpha.contiguous().cuda().requires_grad_(True))
         features_dc = self._features_dc.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
         features_rest = self._features_rest.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
@@ -133,7 +133,7 @@ class PcdGaussianModel(GaussianModel):
         self.attached_features_rest = nn.Parameter(features_rest.cuda().requires_grad_(True))
         opacity = self._opacity.unsqueeze(1).expand(-1, num_splats, -1).flatten(start_dim=0, end_dim=1).clone()
         self.attached_opacity = nn.Parameter(opacity.cuda().requires_grad_(True))
-        scale = torch.ones((num, 1)).float()
+        scale = torch.zeros((num, 3)).float()
         self.attached_scale = nn.Parameter(scale.contiguous().cuda().requires_grad_(True))
         rotation = torch.zeros((num_gauss, num_splats, 4)).float()
         rotation[:, :, 0] = 1.0 # identity rotation quaternion is (1, 0, 0, 0)

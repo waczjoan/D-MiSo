@@ -176,7 +176,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                         dataset.white_background and iteration == opt.densify_from_iter):
                     gaussians.reset_opacity()
             elif iteration == opt.densify_until_iter and not gaussians.use_attached_gauss:
-                gaussians.setup_attached_gauss()
+                gaussians.setup_attached_gauss(dataset.num_splat, dataset.num_gauss)
                 gaussians.use_attached_gauss = True
 
             # Optimizer step
