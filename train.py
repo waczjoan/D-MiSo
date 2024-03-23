@@ -93,6 +93,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         cam_idx = randint(0, max(0, len(viewpoint_stack) - BATCH_SIZE))
         for i in range(BATCH_SIZE):
             # Pick a random Camera
+            if not viewpoint_stack:
+                break
             viewpoint_cam = viewpoint_stack.pop(cam_idx + skip_window)
             if dataset.load2gpu_on_the_fly:
                 viewpoint_cam.load2device()
