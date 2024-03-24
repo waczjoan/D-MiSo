@@ -38,11 +38,11 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
     """
 
     # Create zero tensor. We will use it to make pytorch return gradients of the 2D (screen-space) means
-    screenspace_points = torch.zeros_like(pc.get_xyz, dtype=pc.get_xyz.dtype, requires_grad=True, device="cuda") + 0
-    try:
-        screenspace_points.retain_grad()
-    except:
-        pass
+    # screenspace_points = torch.zeros_like(pc.get_xyz, dtype=pc.get_xyz.dtype, requires_grad=True, device="cuda") + 0
+    # try:
+    #     screenspace_points.retain_grad()
+    # except:
+    #     pass
 
     # Set up rasterization configuration
     tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
@@ -71,13 +71,15 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
         else:
             means3D = from_homogenous(
                 torch.bmm(d_v1, to_homogenous(pc.get_xyz).unsqueeze(-1)).squeeze(-1))
-    else:
-        means3D = pc.get_xyz + d_v1
+    # else:
+    #     means3D = pc.get_xyz + d_v1
 
-    opacity = pc.get_opacity
+    
     # opacity = torch.cat((opacity, pc.get_attached_opacity))
     if pc.use_attached_gauss:
         opacity = pc.get_attached_opacity
+    else:
+        opacity = pc.get_opacity
 
     # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
     # scaling / rotation by the rasterizer.
@@ -104,7 +106,14 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
         # means3D = torch.cat((means3D, pc.calc_attached_gauss(v1, v2, v3)))
         if pc.use_attached_gauss:
             means3D = pc.calc_attached_gauss(v1, v2, v3)
+        else:
+            means3D = pc.get_xyz + d_v1
         screenspace_points = torch.zeros_like(means3D, requires_grad=True, device="cuda")
+        try:
+            screenspace_points.retain_grad()
+        except:
+            pass
+
         means2D = screenspace_points
 
     # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors
@@ -119,10 +128,11 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
             sh2rgb = eval_sh(pc.active_sh_degree, shs_view, dir_pp_normalized)
             colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0)
         else:
-            shs = pc.get_features
             # shs = torch.cat((shs, pc.get_attached_shs))
             if pc.use_attached_gauss:
                 shs = pc.get_attached_shs
+            else:
+                shs = pc.get_features
     else:
         colors_precomp = override_color
 

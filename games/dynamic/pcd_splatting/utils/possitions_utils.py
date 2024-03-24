@@ -21,6 +21,22 @@ def get_embedder(multires, i=1):
     embed = lambda x, eo=embedder_obj: eo.embed(x)
     return embed, embedder_obj.out_dim
 
+def get_hash_embedder(in_channels):
+    import tinycudann as tcnn
+    encoding_config = {
+        "otype": "Grid",
+        "type": "Hash",
+        "n_levels": 16,
+        "n_features_per_level": 2,
+        "log2_hashmap_size": 19,
+        "base_resolution": 16,
+        "per_level_scale": 2.0,
+        "interpolation": "Linear"
+    }
+
+    encoder = tcnn.Encoding(in_channels, encoding_config, dtype=torch.float32)
+    return encoder, encoder.n_output_dims
+
 
 class Embedder:
     def __init__(self, **kwargs):
@@ -59,7 +75,7 @@ class Sin(nn.Module):
         return torch.sin(input)
 
 class DeformNetwork(nn.Module):
-    def __init__(self, D=8, W=256, input_ch=3, output_ch=59, multires=10, is_blender=False, is_6dof=False):
+    def __init__(self, D=8, W=256, input_ch=3, output_ch=59, multires=10, is_blender=False, is_6dof=False, use_hash=True):
         super(DeformNetwork, self).__init__()
         self.D = D
         self.W = W
@@ -67,9 +83,12 @@ class DeformNetwork(nn.Module):
         self.output_ch = output_ch
         self.t_multires = 6 if is_blender else 10
         self.skips = [D // 2]
-
         self.embed_time_fn, time_input_ch = get_embedder(self.t_multires, 1)
-        self.embed_fn, xyz_input_ch = get_embedder(multires, 3)
+        if use_hash:
+            print("Using hash encoding!!!")
+            self.embed_fn, xyz_input_ch = get_hash_embedder(3)
+        else:
+            self.embed_fn, xyz_input_ch = get_embedder(multires, 3)
         self.input_ch = xyz_input_ch + time_input_ch
 
         if is_blender:

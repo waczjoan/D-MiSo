@@ -125,7 +125,7 @@ class PcdGaussianModel(GaussianModel):
             num_splats,
             3
         )
-        # alpha += torch.randn_like(alpha) * 0.1
+        # alpha += torch.randn_like(alpha) * 0.01
         self.alpha = nn.Parameter(alpha.contiguous().cuda().requires_grad_(True))
         features_dc = self._features_dc.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
         features_rest = self._features_rest.unsqueeze(1).expand(-1, num_splats, -1, -1).flatten(start_dim=0, end_dim=1).clone()
@@ -262,11 +262,12 @@ class PcdGaussianModel(GaussianModel):
         r3 = _s3 - proj(_s3, r1) - proj(_s3, r2)
         r3 = r3 / (torch.linalg.vector_norm(r3, dim=-1, keepdim=True) + eps)
         s3 = dot(_s3, r3)
+        # assert torch.all(s3 > 0), s3.min()
 
-        mask = s3 < (s2/10)
-        s3[mask] = s2[mask]/10
+        # mask = s3 < (s2/10)
+        # s3[mask] = s2[mask]/10
         scales = torch.cat([s2, s3], dim=1)
-        _scaling = self.scaling_inverse_activation(scales)
+        _scaling = self.scaling_inverse_activation(torch.abs(scales))
         #_scaling = torch.clamp(_scaling, max=-6)
 
         rotation = torch.stack([r1, r2, r3], dim=1)
