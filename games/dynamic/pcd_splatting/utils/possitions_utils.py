@@ -75,7 +75,7 @@ class Sin(nn.Module):
         return torch.sin(input)
 
 class DeformNetwork(nn.Module):
-    def __init__(self, D=8, W=256, input_ch=3, output_ch=59, multires=10, is_blender=False, is_6dof=False, use_hash=True):
+    def __init__(self, D=8, W=256, input_ch=3, output_ch=59, multires=10, is_blender=False, is_6dof=False, use_hash=False):
         super(DeformNetwork, self).__init__()
         self.D = D
         self.W = W
