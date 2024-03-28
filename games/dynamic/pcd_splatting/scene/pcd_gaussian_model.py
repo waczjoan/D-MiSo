@@ -154,9 +154,14 @@ class PcdGaussianModel(GaussianModel):
         _v2 = v2 - v1
         _v3 = v3 - v1
 
+        if torch.is_tensor(d_rot):
+            R = build_rotation(d_rot)
+            _v2 = torch.einsum('bik,bk->bi', [R, _v2]) # batched matrix vector multiplication
+            _v3 = torch.einsum('bik,bk->bi', [R, _v3]) # batched matrix vector multiplication
+
         v1 = v1 + d_v1
-        v2 = v2 + d_v1 + _v2/torch.linalg.vector_norm(_v2, dim=-1, keepdim=True) * d_v2 + d_rot
-        v3 = v3 + d_v1 + _v3/torch.linalg.vector_norm(_v3, dim=-1, keepdim=True) * d_v3 + d_rot
+        v2 = v2 + d_v1 + _v2/torch.linalg.vector_norm(_v2, dim=-1, keepdim=True) * d_v2
+        v3 = v3 + d_v1 + _v3/torch.linalg.vector_norm(_v3, dim=-1, keepdim=True) * d_v3
 
         return v1, v2, v3
 
@@ -262,16 +267,11 @@ class PcdGaussianModel(GaussianModel):
         r3 = _s3 - proj(_s3, r1) - proj(_s3, r2)
         r3 = r3 / (torch.linalg.vector_norm(r3, dim=-1, keepdim=True) + eps)
         s3 = dot(_s3, r3)
-        # assert torch.all(s3 > 0), s3.min()
 
-        # mask = s3 < (s2/10)
-        # s3[mask] = s2[mask]/10
         scales = torch.cat([s2, s3], dim=1)
         _scaling = self.scaling_inverse_activation(torch.abs(scales))
-        #_scaling = torch.clamp(_scaling, max=-6)
 
-        rotation = torch.stack([r1, r2, r3], dim=1)
-        rotation = rotation.transpose(-2, -1)
+        rotation = torch.stack([r1, r2, r3], dim=-1)
 
         _rotation = rot_to_quat_batch(rotation)
 

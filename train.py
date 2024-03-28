@@ -190,8 +190,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 deform.optimizer.zero_grad()
                 deform.update_learning_rate(iteration)
 
-            if hasattr(gaussians, 'prepare_scaling_rot'):
-                gaussians.prepare_scaling_rot()
+            # if hasattr(gaussians, 'prepare_scaling_rot'):
+            #     gaussians.prepare_scaling_rot()
 
     print("Best PSNR = {} in Iteration {}".format(best_psnr, best_iteration))
 

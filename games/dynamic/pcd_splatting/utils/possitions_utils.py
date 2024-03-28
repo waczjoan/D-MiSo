@@ -122,7 +122,7 @@ class DeformNetwork(nn.Module):
             self.gaussian_warp = nn.Linear(W, 3)
         self.gaussian_v2 = nn.Linear(W, 3)
         self.gaussian_v3 = nn.Linear(W, 3)
-        self.gaussian_rot = nn.Linear(W, 3)
+        self.gaussian_rot = nn.Linear(W, 4)
 
 
     def forward(self, v1, v2, v3, t):
