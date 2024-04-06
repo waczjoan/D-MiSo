@@ -56,7 +56,7 @@ def render_set(model_path, load2gpu_on_the_fly, is_6dof, name, iteration, views,
         )
         normal_vector /= torch.linalg.vector_norm(normal_vector, dim=-1, keepdim=True)
         time_data[fid.cpu().item()] = {"normal": normal_vector, "v1": v1, "v2": v2, "v3": v3}
-        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
+        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         #depth = results["depth"]
         #depth = depth / (depth.max() + 1e-5)
@@ -301,6 +301,7 @@ def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, 
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
         deform = gaussians.deform_model
         deform.load_weights(dataset.model_path)
+        gaussians.load_time_weights(dataset.model_path)
 
         bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")

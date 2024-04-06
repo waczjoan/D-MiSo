@@ -84,6 +84,7 @@ class DeformNetwork(nn.Module):
         self.t_multires = 6 if is_blender else 10
         self.skips = [D // 2]
         self.embed_time_fn, time_input_ch = get_embedder(self.t_multires, 1)
+        self.time_input_ch = time_input_ch
         if use_hash:
             print("Using hash encoding!!!")
             self.embed_fn, xyz_input_ch = get_hash_embedder(3)

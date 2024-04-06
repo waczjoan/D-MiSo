@@ -26,7 +26,7 @@ from utils.general_utils import (
     get_expon_lr_func,
 )
 from games.dynamic.pcd_splatting.scene.deform_model import DeformModel
-from utils.system_utils import mkdir_p
+from utils.system_utils import mkdir_p, searchForMaxIteration
 from gaussian_renderer import quaternion_multiply
 
 class PcdGaussianModel(GaussianModel):
@@ -42,6 +42,9 @@ class PcdGaussianModel(GaussianModel):
 
         self.use_attached_gauss = True
         self.mini = torch.empty(0, device="cuda")
+
+        time_dim = self.deform_model.deform.time_input_ch
+        self.additiontal_time_rot = torch.nn.Linear(in_features=4+time_dim, out_features=4, device="cuda")
 
     @property
     def get_xyz(self):
@@ -80,12 +83,24 @@ class PcdGaussianModel(GaussianModel):
         attached_scales = self.scaling_activation(self.attached_scale) * scales.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3)
         return attached_scales
     
-    def get_attached_rotations(self, rotations):
+    def get_attached_rotations(self, rotations, time_input):
         if not self.use_attached_gauss:
             return torch.empty(0, device="cuda")
         
-        attached_rotations = quaternion_multiply(self.rotation_activation(self.attached_rotation), rotations.unsqueeze(dim=1))
-        return attached_rotations.reshape(-1, 4)
+        time_input = time_input.unsqueeze(1).expand(-1, self.num_splats, -1).flatten(0, 1)
+        time_input = self.deform_model.deform.embed_time_fn(time_input)
+        
+        time_dependent_rot = self.additiontal_time_rot(
+            torch.cat(
+                [self.attached_rotation, time_input], dim=-1
+            ).cuda()
+        )
+
+        attached_rotations = quaternion_multiply(
+            self.rotation_activation(time_dependent_rot), 
+            rotations.unsqueeze(dim=1).expand(-1, self.num_splats, -1).flatten(0, 1)
+        )
+        return attached_rotations#.reshape(-1, 4)
     
     def calc_attached_gauss(self, v1, v2, v3):
         if not self.use_attached_gauss:
@@ -135,8 +150,8 @@ class PcdGaussianModel(GaussianModel):
         self.attached_opacity = nn.Parameter(opacity.cuda().requires_grad_(True))
         scale = torch.zeros((num, 3)).float()
         self.attached_scale = nn.Parameter(scale.contiguous().cuda().requires_grad_(True))
-        rotation = torch.zeros((num_gauss, num_splats, 4)).float()
-        rotation[:, :, 0] = 1.0 # identity rotation quaternion is (1, 0, 0, 0)
+        rotation = torch.zeros((num, 4)).float()
+        rotation[:, 0] = 1.0 # identity rotation quaternion is (1, 0, 0, 0)
         self.attached_rotation = nn.Parameter(rotation.contiguous().cuda().requires_grad_(True))
 
         self.optimizer.add_param_group({'params': [self.alpha], 'lr': 0.001, "name": "alpha"})
@@ -180,6 +195,7 @@ class PcdGaussianModel(GaussianModel):
         ]
 
         self.optimizer = torch.optim.Adam(l_params, lr=0.0, eps=1e-15)
+        self.time_optimizer = torch.optim.Adam(self.additiontal_time_rot.parameters(), lr=0.001)
 
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init * self.spatial_lr_scale,
                                                     lr_final=training_args.position_lr_final * self.spatial_lr_scale,
@@ -445,6 +461,19 @@ class PcdGaussianModel(GaussianModel):
         self.prune_points(prune_mask)
 
         torch.cuda.empty_cache()
+
+    def save_time_weights(self, model_path, iteration):
+        out_weights_path = os.path.join(model_path, "time_net/iteration_{}".format(iteration))
+        os.makedirs(out_weights_path, exist_ok=True)
+        torch.save(self.additiontal_time_rot.state_dict(), os.path.join(out_weights_path, 'deform.pth'))
+
+    def load_time_weights(self, model_path, iteration=-1):
+        if iteration == -1:
+            loaded_iter = searchForMaxIteration(os.path.join(model_path, "deform"))
+        else:
+            loaded_iter = iteration
+        weights_path = os.path.join(model_path, "time_net/iteration_{}/deform.pth".format(loaded_iter))
+        self.additiontal_time_rot.load_state_dict(torch.load(weights_path))
 
     def save_ply(self, path):
         self._xyz = self.pseudomesh[:, 0]

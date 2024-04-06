@@ -116,7 +116,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 )
 
             # Render
-            render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_v1, d_v2, d_v3, d_rot,  dataset.is_6dof)
+            render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_v1, d_v2, d_v3, d_rot, time_input,  dataset.is_6dof)
             image, viewspace_point_tensor, visibility_filter, radii = render_pkg_re["render"], render_pkg_re[
                 "viewspace_points"], render_pkg_re["visibility_filter"], render_pkg_re["radii"]
             # depth = render_pkg_re["depth"]
@@ -159,6 +159,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
                 deform.save_weights(args.model_path, iteration)
+                gaussians.save_time_weights(args.model_path, iteration)
 
             # add Gaussians where is moving
             viewspace_point_tensor_grad = viewspace_point_tensor.grad
@@ -185,6 +186,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             if iteration < opt.iterations:
                 gaussians.optimizer.step()
                 gaussians.update_learning_rate(iteration)
+                gaussians.time_optimizer.step()
+                gaussians.time_optimizer.zero_grad()
                 deform.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none=True)
                 deform.optimizer.zero_grad()
@@ -253,7 +256,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                         #scene.gaussians.pseudomesh[:, 3].detach()
                     )
                     image = torch.clamp(
-                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_v1, d_v2, d_v3, d_rot, is_6dof)["render"],
+                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)["render"],
                         0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     images = torch.cat((images, image.unsqueeze(0)), dim=0)
