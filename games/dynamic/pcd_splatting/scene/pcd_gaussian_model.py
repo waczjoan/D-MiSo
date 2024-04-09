@@ -195,7 +195,7 @@ class PcdGaussianModel(GaussianModel):
         ]
 
         self.optimizer = torch.optim.Adam(l_params, lr=0.0, eps=1e-15)
-        self.time_optimizer = torch.optim.Adam(self.additiontal_time_rot.parameters(), lr=0.001)
+        self.time_optimizer = torch.optim.Adam(self.additiontal_time_rot.parameters(), lr=0.1)
 
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init * self.spatial_lr_scale,
                                                     lr_final=training_args.position_lr_final * self.spatial_lr_scale,
