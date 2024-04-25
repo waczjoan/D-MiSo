@@ -300,8 +300,8 @@ def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, 
         gaussians = PcdGaussianModel(dataset.sh_degree, dataset.is_blender, dataset.is_6dof)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
         deform = gaussians.deform_model
-        deform.load_weights(dataset.model_path)
-        gaussians.load_time_weights(dataset.model_path)
+        deform.load_weights(dataset.model_path, iteration)
+        gaussians.load_time_weights(dataset.model_path, iteration)
 
         bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -335,7 +335,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Testing script parameters")
     model = ModelParams(parser, sentinel=True)
     pipeline = PipelineParams(parser)
-    parser.add_argument("--iteration", default=-1, type=int)
+    parser.add_argument("--iteration", default='best')
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
