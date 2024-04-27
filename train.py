@@ -154,11 +154,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 if cur_psnr.item() > best_psnr:
                     best_psnr = cur_psnr.item()
                     best_iteration = iteration
-                    if iteration > 5_000:
-                        print("\n[ITER {}] Saving Gaussians - best".format(iteration))
-                        scene.save('best')
-                        deform.save_weights(args.model_path, 'best')
-                        gaussians.save_time_weights(args.model_path, 'best')
+                    print("\n[ITER {}] Saving Gaussians - best".format(iteration))
+                    scene.save('best')
+                    deform.save_weights(args.model_path, 'best')
+                    gaussians.save_time_weights(args.model_path, 'best')
 
             if iteration in saving_iterations:
                 print("\n[ITER {}] Saving Gaussians".format(iteration))

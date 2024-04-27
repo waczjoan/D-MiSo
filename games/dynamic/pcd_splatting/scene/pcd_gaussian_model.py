@@ -489,7 +489,8 @@ class PcdGaussianModel(GaussianModel):
             'attached_opacity',
             'attached_features_dc',
             'attached_features_rest',
-            'num_splats'
+            'num_splats',
+            'use_attached_gauss'
         ]
 
         save_dict = {}
@@ -521,6 +522,8 @@ class PcdGaussianModel(GaussianModel):
             self.attached_features_rest = nn.Parameter(params['attached_features_rest'])
         if 'num_splats' in params:
             self.num_splats = params['num_splats']
+        if 'use_attached_gauss' in params:
+            self.use_attached_gauss = params['use_attached_gauss']
         
         #if 'idx_faces' in params:
         #    self.idx_faces = params['idx_faces']
