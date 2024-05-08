@@ -154,9 +154,6 @@ class PcdGaussianModel(GaussianModel):
         rotation[:, 0] = 1.0 # identity rotation quaternion is (1, 0, 0, 0)
         self.attached_rotation = nn.Parameter(rotation.contiguous().cuda().requires_grad_(True))
 
-        print(alpha_lr)
-        exit()
-
         self.optimizer.add_param_group({'params': [self.alpha], 'lr': alpha_lr, "name": "alpha"})
         self.optimizer.add_param_group({'params': [self.attached_features_dc], 'lr': self.training_args.feature_lr, "name": "attached_f_dc"})
         self.optimizer.add_param_group({'params': [self.attached_features_rest], 'lr': self.training_args.feature_lr, "name": "attached_f_rest"})
