@@ -99,6 +99,7 @@ class OptimizationParams(ParamGroup):
         self.densify_from_iter = 500
         self.densify_until_iter = 35_000
         self.densify_grad_threshold = 0.0002
+        self.alpha_lr = 0.001
         super().__init__(parser, "Optimization Parameters")
 
 

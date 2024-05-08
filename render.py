@@ -89,7 +89,12 @@ def interpolate_time(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, 
         fid = torch.Tensor([t / (frame - 1)]).cuda()
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-        d_v1, d_v2, d_v3, d_rot = deform.step(xyz.detach(), time_input)
+        d_v1, d_v2, d_v3, d_rot = deform.step(
+            gaussians.pseudomesh[:, 0].detach(),
+            gaussians.pseudomesh[:, 1].detach(),
+            gaussians.pseudomesh[:, 2].detach(),
+            time_input
+        )
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
@@ -135,7 +140,12 @@ def interpolate_view(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, 
 
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-        d_v1, d_v2, d_v3, d_rot = timer.step(xyz.detach(), time_input)
+        d_v1, d_v2, d_v3, d_rot = gaussians.deform.step(
+            gaussians.pseudomesh[:, 0].detach(),
+            gaussians.pseudomesh[:, 1].detach(),
+            gaussians.pseudomesh[:, 2].detach(),
+            time_input
+        )
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
@@ -179,7 +189,12 @@ def interpolate_all(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, v
 
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-        d_v1, d_v2, d_v3, d_rot = deform.step(xyz.detach(), time_input)
+        d_v1, d_v2, d_v3, d_rot = deform.step(
+            gaussians.pseudomesh[:, 0].detach(),
+            gaussians.pseudomesh[:, 1].detach(),
+            gaussians.pseudomesh[:, 2].detach(),
+            time_input
+        )
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))

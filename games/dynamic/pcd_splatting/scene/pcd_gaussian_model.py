@@ -121,7 +121,7 @@ class PcdGaussianModel(GaussianModel):
         ).reshape(-1, 3)
         return self.mini + v1.unsqueeze(1).expand(-1, self.num_splats, -1).reshape(-1, 3)
     
-    def setup_attached_gauss(self, num_splats=500, num_gauss=2000):
+    def setup_attached_gauss(self, num_splats=500, num_gauss=2000, alpha_lr=1e-3):
         self.num_splats = num_splats
         num_gauss = min(
             num_gauss,
@@ -154,7 +154,10 @@ class PcdGaussianModel(GaussianModel):
         rotation[:, 0] = 1.0 # identity rotation quaternion is (1, 0, 0, 0)
         self.attached_rotation = nn.Parameter(rotation.contiguous().cuda().requires_grad_(True))
 
-        self.optimizer.add_param_group({'params': [self.alpha], 'lr': 0.001, "name": "alpha"})
+        print(alpha_lr)
+        exit()
+
+        self.optimizer.add_param_group({'params': [self.alpha], 'lr': alpha_lr, "name": "alpha"})
         self.optimizer.add_param_group({'params': [self.attached_features_dc], 'lr': self.training_args.feature_lr, "name": "attached_f_dc"})
         self.optimizer.add_param_group({'params': [self.attached_features_rest], 'lr': self.training_args.feature_lr, "name": "attached_f_rest"})
         self.optimizer.add_param_group({'params': [self.attached_opacity], 'lr': self.training_args.opacity_lr, "name": "attached_opacity"})
