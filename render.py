@@ -49,13 +49,13 @@ def render_set(model_path, load2gpu_on_the_fly, is_6dof, name, iteration, views,
             gaussians.pseudomesh[:, 2].detach(),
             time_input
         )
-        v1, v2, v3 = gaussians.calc_vertices(d_v1, d_v2, d_v3, d_rot)
-        normal_vector = torch.cross(
-            v2 - v1,
-            v3 - v1
-        )
-        normal_vector /= torch.linalg.vector_norm(normal_vector, dim=-1, keepdim=True)
-        time_data[fid.cpu().item()] = {"normal": normal_vector, "v1": v1, "v2": v2, "v3": v3}
+        # v1, v2, v3 = gaussians.calc_vertices(d_v1, d_v2, d_v3, d_rot)
+        # normal_vector = torch.cross(
+        #     v2 - v1,
+        #     v3 - v1
+        # )
+        # normal_vector /= torch.linalg.vector_norm(normal_vector, dim=-1, keepdim=True)
+        # time_data[fid.cpu().item()] = {"normal": normal_vector, "v1": v1, "v2": v2, "v3": v3}
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         #depth = results["depth"]
@@ -95,7 +95,7 @@ def interpolate_time(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, 
             gaussians.pseudomesh[:, 2].detach(),
             time_input
         )
-        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
+        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
         depth = results["depth"]
@@ -146,7 +146,7 @@ def interpolate_view(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, 
             gaussians.pseudomesh[:, 2].detach(),
             time_input
         )
-        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
+        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
         depth = results["depth"]
@@ -195,7 +195,7 @@ def interpolate_all(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, v
             gaussians.pseudomesh[:, 2].detach(),
             time_input
         )
-        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, is_6dof)
+        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
         depth = results["depth"]
@@ -241,14 +241,14 @@ def interpolate_poses(model_path, load2gpt_on_the_fly, is_6dof, name, iteration,
 
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-        d_xyz, d_rotation, d_scaling = timer.step(
+        d_v1, d_v2, d_v3, d_rot = timer.step(
             gaussians.pseudomesh[:, 0].detach(),
             gaussians.pseudomesh[:, 1].detach(),
             gaussians.pseudomesh[:, 2].detach(),
             time_input
         )
 
-        results = render(view, gaussians, pipeline, background, d_xyz, d_rotation, d_scaling, is_6dof)
+        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
         depth = results["depth"]
@@ -302,14 +302,14 @@ def interpolate_view_original(model_path, load2gpt_on_the_fly, is_6dof, name, it
 
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-        d_xyz, d_rotation, d_scaling = timer.step(
+        d_v1, d_v2, d_v3, d_rot = timer.step(
             gaussians.pseudomesh[:, 0].detach(),
             gaussians.pseudomesh[:, 1].detach(),
             gaussians.pseudomesh[:, 2].detach(),
             time_input
         )
 
-        results = render(view, gaussians, pipeline, background, d_xyz, d_rotation, d_scaling, is_6dof)
+        results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
         depth = results["depth"]
