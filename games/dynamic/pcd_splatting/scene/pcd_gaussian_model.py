@@ -188,7 +188,7 @@ class PcdGaussianModel(GaussianModel):
         self.training_args = training_args
 
         l_params = [
-            {'params': [self.pseudomesh], 'lr': training_args.psuedomesh_lr, "name": "pseudomesh"},
+            {'params': [self.pseudomesh], 'lr': training_args.pseudomesh_lr_init, "name": "pseudomesh"},
             {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
             {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
             {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"}
@@ -197,23 +197,24 @@ class PcdGaussianModel(GaussianModel):
         self.optimizer = torch.optim.Adam(l_params, lr=0.0, eps=1e-15)
         self.time_optimizer = torch.optim.Adam(self.additiontal_time_rot.parameters(), lr=0.1)
 
-        self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init * self.spatial_lr_scale,
-                                                    lr_final=training_args.position_lr_final * self.spatial_lr_scale,
-                                                    lr_delay_mult=training_args.position_lr_delay_mult,
-                                                    max_steps=training_args.position_lr_max_steps)
+        self.pseudomesh_scheduler_args = get_expon_lr_func(lr_init=training_args.pseudomesh_lr_init * self.spatial_lr_scale,
+                                                    lr_final=training_args.pseudomesh_lr_final * self.spatial_lr_scale,
+                                                    lr_delay_mult=training_args.pseudomesh_lr_delay_mult,
+                                                    max_steps=training_args.pseudomesh_lr_max_steps)
 
         #self.deform_model.train_setting(training_args)
 
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
         for param_group in self.optimizer.param_groups:
-            if param_group["name"] == "xyz":
-                lr = self.xyz_scheduler_args(iteration)
+            if param_group["name"] == "pseudomesh":
+                lr = self.pseudomesh_scheduler_args(iteration)
                 param_group['lr'] = lr
                 return
+            
     def init_pseudomesh(self, xyz):
         """
-        Prepare psudo-mesh faces.
+        Prepare pseudo-mesh faces.
         """
         scales = self.get_scaling
         rotation = self._rotation
