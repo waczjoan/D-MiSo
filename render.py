@@ -241,7 +241,12 @@ def interpolate_poses(model_path, load2gpt_on_the_fly, is_6dof, name, iteration,
 
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-        d_xyz, d_rotation, d_scaling = timer.step(xyz.detach(), time_input)
+        d_xyz, d_rotation, d_scaling = timer.step(
+            gaussians.pseudomesh[:, 0].detach(),
+            gaussians.pseudomesh[:, 1].detach(),
+            gaussians.pseudomesh[:, 2].detach(),
+            time_input
+        )
 
         results = render(view, gaussians, pipeline, background, d_xyz, d_rotation, d_scaling, is_6dof)
         rendering = results["render"]
@@ -297,7 +302,12 @@ def interpolate_view_original(model_path, load2gpt_on_the_fly, is_6dof, name, it
 
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
-        d_xyz, d_rotation, d_scaling = timer.step(xyz.detach(), time_input)
+        d_xyz, d_rotation, d_scaling = timer.step(
+            gaussians.pseudomesh[:, 0].detach(),
+            gaussians.pseudomesh[:, 1].detach(),
+            gaussians.pseudomesh[:, 2].detach(),
+            time_input
+        )
 
         results = render(view, gaussians, pipeline, background, d_xyz, d_rotation, d_scaling, is_6dof)
         rendering = results["render"]
