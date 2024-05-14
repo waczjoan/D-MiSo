@@ -98,11 +98,11 @@ def interpolate_time(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, 
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
-        depth = results["depth"]
-        depth = depth / (depth.max() + 1e-5)
+        # depth = results["depth"]
+        # depth = depth / (depth.max() + 1e-5)
 
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(t) + ".png"))
-        torchvision.utils.save_image(depth, os.path.join(depth_path, '{0:05d}'.format(t) + ".png"))
+        # torchvision.utils.save_image(depth, os.path.join(depth_path, '{0:05d}'.format(t) + ".png"))
 
     renderings = np.stack(renderings, 0).transpose(0, 2, 3, 1)
     imageio.mimwrite(os.path.join(render_path, 'video.mp4'), renderings, fps=30, quality=8)
@@ -149,12 +149,12 @@ def interpolate_view(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, 
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
-        depth = results["depth"]
-        depth = depth / (depth.max() + 1e-5)
+        # depth = results["depth"]
+        # depth = depth / (depth.max() + 1e-5)
         # acc = results["acc"]
 
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(i) + ".png"))
-        torchvision.utils.save_image(depth, os.path.join(depth_path, '{0:05d}'.format(i) + ".png"))
+        # torchvision.utils.save_image(depth, os.path.join(depth_path, '{0:05d}'.format(i) + ".png"))
         # torchvision.utils.save_image(acc, os.path.join(acc_path, '{0:05d}'.format(i) + ".png"))
 
     renderings = np.stack(renderings, 0).transpose(0, 2, 3, 1)
@@ -198,11 +198,11 @@ def interpolate_all(model_path, load2gpt_on_the_fly, is_6dof, name, iteration, v
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
-        depth = results["depth"]
-        depth = depth / (depth.max() + 1e-5)
+        # depth = results["depth"]
+        # depth = depth / (depth.max() + 1e-5)
 
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(i) + ".png"))
-        torchvision.utils.save_image(depth, os.path.join(depth_path, '{0:05d}'.format(i) + ".png"))
+        # torchvision.utils.save_image(depth, os.path.join(depth_path, '{0:05d}'.format(i) + ".png"))
 
     renderings = np.stack(renderings, 0).transpose(0, 2, 3, 1)
     imageio.mimwrite(os.path.join(render_path, 'video.mp4'), renderings, fps=30, quality=8)
@@ -251,8 +251,8 @@ def interpolate_poses(model_path, load2gpt_on_the_fly, is_6dof, name, iteration,
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
-        depth = results["depth"]
-        depth = depth / (depth.max() + 1e-5)
+        # depth = results["depth"]
+        # depth = depth / (depth.max() + 1e-5)
 
     renderings = np.stack(renderings, 0).transpose(0, 2, 3, 1)
     imageio.mimwrite(os.path.join(render_path, 'video.mp4'), renderings, fps=60, quality=8)
@@ -312,8 +312,8 @@ def interpolate_view_original(model_path, load2gpt_on_the_fly, is_6dof, name, it
         results = render(view, gaussians, pipeline, background, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)
         rendering = results["render"]
         renderings.append(to8b(rendering.cpu().numpy()))
-        depth = results["depth"]
-        depth = depth / (depth.max() + 1e-5)
+        # depth = results["depth"]
+        # depth = depth / (depth.max() + 1e-5)
 
     renderings = np.stack(renderings, 0).transpose(0, 2, 3, 1)
     imageio.mimwrite(os.path.join(render_path, 'video.mp4'), renderings, fps=60, quality=8)
