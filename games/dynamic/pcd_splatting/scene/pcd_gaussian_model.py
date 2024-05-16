@@ -188,7 +188,7 @@ class PcdGaussianModel(GaussianModel):
         self.training_args = training_args
 
         l_params = [
-            {'params': [self.pseudomesh], 'lr': training_args.pseudomesh_lr_init, "name": "pseudomesh"},
+            {'params': [self.pseudomesh], 'lr': training_args.pseudomesh_lr_init * self.spatial_lr_scale, "name": "pseudomesh"},
             {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
             {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
             {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"}
