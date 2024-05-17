@@ -34,7 +34,7 @@ except ImportError:
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations):
     tb_writer = prepare_output_and_logger(dataset)
-    gaussians = PcdGaussianModel(dataset.sh_degree, dataset.is_blender, dataset.is_6dof)
+    gaussians = PcdGaussianModel(dataset.sh_degree, dataset.deform_width, dataset.deform_depth, dataset.is_blender, dataset.is_6dof)
     deform = gaussians.deform_model
     deform.train_setting(opt)
 

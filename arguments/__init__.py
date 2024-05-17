@@ -62,6 +62,8 @@ class ModelParams(ParamGroup):
         self.is_6dof = False
         self.num_splat = 500
         self.num_gauss = 2000
+        self.deform_depth = 8
+        self.deform_width = 256
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):

@@ -31,14 +31,14 @@ from gaussian_renderer import quaternion_multiply
 
 class PcdGaussianModel(GaussianModel):
 
-    def __init__(self, sh_degree: int, is_blender: bool, is_6dof: bool):
+    def __init__(self, sh_degree: int, deform_width: int, deform_depth: int, is_blender: bool, is_6dof: bool):
         super().__init__(sh_degree)
         self.pseudomesh = torch.empty(0)
         self.eps_s0 = 1e-8
 
         self.scaling_activation = lambda x: torch.exp(x)
         self.scaling_inverse_activation = lambda x: torch.log(x)
-        self.deform_model = DeformModel(is_blender, is_6dof)
+        self.deform_model = DeformModel(deform_width, deform_depth, is_blender, is_6dof)
 
         self.use_attached_gauss = True
         self.mini = torch.empty(0, device="cuda")
@@ -186,7 +186,6 @@ class PcdGaussianModel(GaussianModel):
         self.percent_dense = training_args.percent_dense
 
         self.training_args = training_args
-
         l_params = [
             {'params': [self.pseudomesh], 'lr': training_args.pseudomesh_lr_init * self.spatial_lr_scale, "name": "pseudomesh"},
             {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
