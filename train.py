@@ -124,6 +124,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             # Loss
             gt_image = viewpoint_cam.original_image.cuda()
             Ll1 = l1_loss(image, gt_image)
+            Ll1 = Ll1 ** (opt.gamma + 1)
             loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
             batch_loss_l1 += Ll1
             batch_loss += loss
