@@ -60,9 +60,9 @@ Common issues:
 
 ## Datasets:
 Download dataset and put it in `data` directory.
-  - We use the `D-NeRF Datasets`;  dataset available under the [link](dodac).
-  - For `NeRF-DS` we used dataset available under the [link](dodac).
-  - `PanopticSports Datasets:` find scenes under the [link](dodac).
+  - We use the `D-NeRF Datasets`;  dataset available under the [link](https://www.dropbox.com/scl/fi/cdcmkufncwcikk1dzbgb4/data.zip?rlkey=n5m21i84v2b2xk6h7qgiu8nkg&e=2&dl=0).
+  - For `NeRF-DS` we used dataset available under the [link](https://github.com/JokerYan/NeRF-DS/releases/tag/v0.1-pre-release).
+  - `PanopticSports Datasets:` find scenes under the [link](http://domedb.perception.cs.cmu.edu/).
 
 If you would like only check renders, we share two pretrained models for `jumpingjacks` from `D-NeRF Datasets`:
 - with black background: [link](dodac)
@@ -70,8 +70,7 @@ If you would like only check renders, we share two pretrained models for `jumpin
 
 ## Tutorial 
 In this section we describe more details, and make step by step how to train and render D-MiSo.
-1. 
-2. Go to [D-NeRF Datasets](dodac), download `jumpingjacks` dataset and put it in to `data` directory. For example:
+1. Go to [D-NeRF Datasets](https://www.dropbox.com/scl/fi/cdcmkufncwcikk1dzbgb4/data.zip?rlkey=n5m21i84v2b2xk6h7qgiu8nkg&e=2&dl=0), download `jumpingjacks` dataset and put it in to `data` directory. For example:
 
 ```
 <D-MiSo>
@@ -218,12 +217,28 @@ To create renders based on created `obj` run:
 
 ```shell
   scripts/render_based_on_obj.py -m "output/jumpingjacks_pre_trained_white_bg" 
-  --objpath "output/jumpingjacks_pre_trained_white_bg/traingle_soups/selected/sub_triangle_soup_modification_1.obj"
+  --objpath "output/jumpingjacks_pre_trained_white_bg/triangle_soups/selected/sub_triangle_soup_modification_1.obj"
 ```
 
 Please check also `sub_triangle_soup_modification_2.obj`.
 
 NOTE! Script `scripts/render_based_on_obj.py` uses `transforms_renders.obj` to define views. Please check it, according to your needs.
+
+In `output/jumpingjacks` you should find `additional_views` with new renders: 
+```
+<D-MiSo>
+|---output
+|   |---<jumpingjacks>
+|   |   |---point_cloud
+|   |   |---cfg_args
+|   |   |---additional_views
+|   |   |---results.json
+|   |   |---...
+|---metrics.py
+|---...
+```
+
+
 
 <section class="section" id="BibTeX">
   <div class="container is-max-desktop content">
