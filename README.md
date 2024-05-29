@@ -1,192 +1,263 @@
-# Deformable 3D Gaussians for High-Fidelity Monocular Dynamic Scene Reconstruction
-
-## [Project page](https://ingra14m.github.io/Deformable-Gaussians/) | [Paper](https://arxiv.org/abs/2309.13101)
-
-![Teaser image](assets/teaser.png)
-
-This repository contains the official implementation associated with the paper "Deformable 3D Gaussians for High-Fidelity Monocular Dynamic Scene Reconstruction".
+# D-MiSo
+Joanna Waczynska, Piotr Borycki, Joanna Kaleta, Slawomir Tadeja, Przemysław Spurek 
 
 
+This repository contains the official authors implementation associated 
+with the paper "D-MiSo: Editing Dynamic 3D Scenes using Multi-Gaussians Soup".
 
-## News
-
-- 23/11/16, full code and real-time viewer released.
-- 23/11/4, update the computation of LPIPS in metrics.py. Previously, the `lpipsPyTorch` was unable to execute on CUDA, prompting us to switch to the `lpips` library (~20x faster).
-- 23/10/25, update **real-time viewer** on project page. Many, many thanks to @[yihua7](https://github.com/yihua7) for implementing the real-time viewer adapted for Deformable-GS. Also, thanks to @[ashawkey](https://github.com/ashawkey) for releasing the original GUI.
-
+Abstract: *
+Over the past years, we have observed an abundance of approaches for modeling dynamic 3D scenes using Gaussian Splatting (GS). Such solutions use GS to represent the scene's structure and the neural network to model dynamics. Such approaches allow fast rendering and extracting each element of such a dynamic scene. However, modifying such objects over time is challenging. SC-GS (Sparse Controlled Gaussian Splatting) enhanced with Deformed Control Points partially solves this issue. However, this approach necessitates selecting elements that need to be kept fixed, as well as centroids that should be adjusted throughout editing. Moreover, this task poses additional difficulties regarding the re-productivity of such editing. To address this, we propose  **D**ynamic **M**ult**i**-Gaussian **So**up (D-MiSo), which allows us to model the mesh-inspired representation of dynamic GS. Additionally, we propose a strategy of linking parameterized Gaussian splats, forming a Triangle Soup with the estimated mesh. Consequently, we can separately construct new trajectories for the 3D objects composing the scene. Thus, we can make the scene's dynamic editable over time or while maintaining partial dynamics. *
 
 
-## Dataset
+Check us if you want having fun with animations:
 
-In our paper, we use:
+<img src="./assets/dnerf_trex_waving.gif" width="250" height="250"/> </br>
+</br>
 
-- synthetic dataset from [D-NeRF](https://www.albertpumarola.com/research/D-NeRF/index.html)
-- real-world dataset from [NeRF-DS](https://jokeryan.github.io/projects/nerf-ds/) and [Hyper-NeRF](https://hypernerf.github.io/) .
+Multiple animations are possible:</br>
+</br>
+<img src="./assets/dnerf_hellwarrior_moving_hand.gif" width="250" height="250"/>
+<img src="./assets/dnerf_standup_moving_hand.gif" width="250" height="250"/>
+<img src="./assets/dnerf_balls_moving.gif" width="250" height="250"/>
+</br>
 
-We organize the datasets as follows:
+# Installation
+
+Since, the software is based on original Gaussian Splatting repository, for details regarding requirements,
+we kindly direct you to check  [3DGS](https://github.com/graphdeco-inria/gaussian-splatting). Here we present the most important information.
+
+### Requirements
+
+- Conda (recommended)
+- CUDA-ready GPU with Compute Capability 7.0+
+- CUDA toolkit 11 for PyTorch extensions (we used 11.8)
+
+## Clone the Repository with submodules
 
 ```shell
-├── data
-│   | D-NeRF 
-│     ├── hook
-│     ├── standup 
-│     ├── ...
-│   | NeRF-DS
-│     ├── as
-│     ├── basin
-│     ├── ...
-│   | HyperNeRF
-│     ├── interp
-│     ├── misc
-│     ├── virg
+# SSH
+git clone git@github.com:waczjoan/D-MiSo.git --recursive
+```
+or
+```shell
+# HTTPS
+git clone https://github.com/waczjoan/D-MiSo.git --recursive
 ```
 
-> I have identified an **inconsistency in the D-NeRF's Lego dataset**. Specifically, the scenes corresponding to the training set differ from those in the test set. This discrepancy can be verified by observing the angle of the flipped Lego shovel. To meaningfully evaluate the performance of our method on this dataset, I recommend using the **validation set of the Lego dataset** as the test set.
-
-
-
-## Pipeline
-
-![Teaser image](assets/pipeline.png)
-
-
-
-## Run
-
 ### Environment
+#### Local Setup
 
+To install the required Python packages we used 3.7 and 3.8 python and conda v. 24.1.0
 ```shell
-git clone https://github.com/ingra14m/Deformable-3D-Gaussians --recursive
-cd Deformable-3D-Gaussians
-
-conda create -n deformable_gaussian_env python=3.7
-conda activate deformable_gaussian_env
-
-# install pytorch
-pip install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
-
-# install dependencies
+conda env create dmiso
+conda dmiso
 pip install -r requirements.txt
 ```
 
+Common issues:
+- Are you sure you downloaded the repository with the --recursive flag?
+- Please note that this process assumes that you have CUDA SDK **11** installed, not **12**. if you encounter a problem please refer to  [3DGS](https://github.com/graphdeco-inria/gaussian-splatting) repository.
 
+## Datasets:
+Download dataset and put it in `data` directory.
+  - We use the `D-NeRF Datasets`;  dataset available under the [link](dodac).
+  - For `NeRF-DS` we used dataset available under the [link](dodac).
+  - `PanopticSports Datasets:` find scenes under the [link](dodac).
 
-### Train
+If you would like only check renders, we share two pretrained models for `jumpingjacks` from `D-NeRF Datasets`:
+- with black background: [link](dodac)
+- with white background: [link](dodac). Additionally, here we share two modified triangle-soup needed to render modification. 
 
-**D-NeRF:**
+## Tutorial 
+In this section we describe more details, and make step by step how to train and render D-MiSo.
+1. 
+2. Go to [D-NeRF Datasets](dodac), download `jumpingjacks` dataset and put it in to `data` directory. For example:
+
+```
+<D-MiSo>
+|---data
+|   |---<jumpingjacks>
+|   |---<mutant>
+|   |---...
+|---train.py
+|---metrics.py
+|---...
+```
+
+2. Train model:
+  ```shell
+  train.py --eval -s "data/jumpingjacks" -m "output/jumpingjacks" --iterations 80000 
+  --warm_up 2000  --densify_until_iter 5000   
+  --num_gauss 100000 --num_splat 25 --batch_size 10 -r 2 --is_blender
+  ```
+Tip1: use `-w` if you want white background
+
+In `output/jumpingjacks` you should find: 
+```
+<D-MiSo>
+|---data
+|   |---<jumpingjacks>
+|   |   |---transforms_train.json
+|   |   |---...
+|---output
+|   |---<jumpingjacks>
+|   |   |---deform
+|   |   |---time_net
+|   |   |---point_cloud
+|   |   |---xyz
+|   |   |---cfg_args
+|   |   |---...
+|---train.py
+|---metrics.py
+|---...
+```
+
+3. Evaluation:
+
+Firstly let's check renders in init position.
+
+In this scenario let's run:
+  ```shell
+  render.py -m output/jumpingjacks 
+  ```
+Use `--skip_train`, if you would like to skip train dataset in render.
+
+Then, let's calculate  metrics:
+```shell
+python metrics.py -m output/jumpingjacks 
+```
+In `output/jumpingjacks` you should find: 
+```
+<D-MiSo>
+|---output
+|   |---<jumpingjacks>
+|   |   |---point_cloud
+|   |   |---cfg_args
+|   |   |---test
+|   |   |   |---<ours_best>
+|   |   |---results.json
+|   |   |---...
+|---metrics.py
+|---...
+```
+4. Save Triangle-Soups.
+
+Since the modifications are based on creating triangle -soups we will, need a blender `.obj`. Use the script:
+ 
+```shell
+  scripts/render_pseudomesh.py -m "output/jumpingjacks"
+ ```
+Note, if necessary, modify it according to your needs! 
+
+In `output/jumpingjacks` you should find: 
+```
+<D-MiSo>
+|---output
+|   |---<jumpingjacks>
+|   |   |---point_cloud
+|   |   |---cfg_args
+|   |   |---triangle_soups
+|   |   |   |---<ours_best>
+|   |   |   |   |---core_triangle_soups
+|   |   |   |   |---sub_triangle_soups
+|   |   |---results.json
+|   |   |---...
+|---metrics.py
+|---...
+```
+
+5. Own  modification* (for blender users):
+
+You can prepare your own more realistic transformation.  Open blender app; you need download it (https://www.blender.org/); Import created objects form `sub_triangle_soups` folder. Create modification and save it:  File -> Export -> Wavefront (.obj). 
+
+NOTE: For first our code use we prepared pre-trained model for `jumpingjacks`. Download it from [link](dodac). And save it:
+```
+<D-MiSo>
+|---output
+|   |---<jumpingjacks_pre_trained_white_bg>
+|   |---<jumpingjacks_pre_trained_black_bg>
+|---metrics.py
+|---...
+```
+
+Please download also `transforms_renders.json` from [link](dodac), and put it in `data\dataset`:
+for examples:
+```
+<D-MiSo>
+|---data
+|   |---<jumpingjacks>
+|   |   |---transforms_renders.json
+|   |   |---transforms_train.json
+|   |   |---...
+|   |---<mutant>
+|   |---...
+|---train.py
+|---metrics.py
+|---...
+```
+
+We prepared modification for `jumpingjacks_pre_trained_white_bg`, please find it here:
+```
+<D-MiSo>
+|---output
+|   |---<jumpingjacks_pre_trained_white_bg>
+|   |   |---traingle_soups
+|   |   |   |---selected
+|   |   |   |   |---sub_triangle_soup_example.obj
+|   |   |   |   |---sub_triangle_soup_modification_1.obj
+|   |   |   |   |---sub_triangle_soup_modification_2.obj
+|---metrics.py
+|---...
+```
+
+* `sub_triangle_soup_example.obj` was selected obj created  `using scripts/render_pseudomesh.py`
+
+6. Render modification:
+
+To create renders based on created `obj` run:
 
 ```shell
-python train.py -s path/to/your/d-nerf/dataset -m output/exp-name --eval --is_blender
+  scripts/render_based_on_obj.py -m "output/jumpingjacks_pre_trained_white_bg" 
+  --objpath "output/jumpingjacks_pre_trained_white_bg/traingle_soups/selected/sub_triangle_soup_modification_1.obj"
 ```
 
-**NeRF-DS/HyperNeRF:**
+Please check also `sub_triangle_soup_modification_2.obj`.
 
-```shell
-python train.py -s path/to/your/real-world/dataset -m output/exp-name --eval
-```
+NOTE! Script `scripts/render_based_on_obj.py` uses `transforms_renders.obj` to define views. Please check it, according to your needs.
 
-**6DoF Transformation:**
-
-We have also implemented the 6DoF transformation of 3D-GS, which may lead to an improvement in metrics but will reduce the speed of training and inference.
-
-```shell
-# D-NeRF
-python train.py -s path/to/your/d-nerf/dataset -m output/exp-name --eval --is_blender --is_6dof
-
-# NeRF-DS & HyperNeRF
-python train.py -s path/to/your/real-world/dataset -m output/exp-name --eval --is_6dof
-```
-
-You can also **train with the GUI:**
-
-```shell
-python train_gui.py -s path/to/your/dataset -m output/exp-name --eval --is_blender
-```
-
-- click `start` to start training, and click `stop` to stop training.
-- The GUI viewer is still under development, many buttons do not have corresponding functions currently. We plan to :
-  - [ ] reload checkpoints from the pre-trained model.
-  - [ ] Complete the functions of the other vacant buttons in the GUI.
-
-
-
-### Render & Evaluation
-
-```shell
-python render.py -m output/exp-name
-python metrics.py -m output/exp-name
-```
-
-We provide several modes for rendering:
-
-- `render`: render all the test images
-- `time`: time interpolation tasks for D-NeRF dataset
-- `all`: time and view synthesis tasks for D-NeRF dataset
-- `view`: view synthesis tasks for real-world dataset
-- `original`: time and view synthesis tasks for real-world dataset
-
-
-
-## Results
-
-### D-NeRF Dataset
-
-**Quantitative Results**
-
-<img src="assets/results/D-NeRF/Quantitative.jpg" alt="Image1" style="zoom:50%;" />
-
-**Qualitative Results**
-
- <img src="assets/results/D-NeRF/bouncing.gif" alt="Image1" style="zoom:25%;" />  <img src="assets/results/D-NeRF/hell.gif" alt="Image1" style="zoom:25%;" />  <img src="assets/results/D-NeRF/hook.gif" alt="Image3" style="zoom:25%;" />  <img src="assets/results/D-NeRF/jump.gif" alt="Image4" style="zoom:25%;" /> 
-
- <img src="assets/results/D-NeRF/lego.gif" alt="Image5" style="zoom:25%;" />  <img src="assets/results/D-NeRF/mutant.gif" alt="Image6" style="zoom:25%;" />  <img src="assets/results/D-NeRF/stand.gif" alt="Image7" style="zoom:25%;" />  <img src="assets/results/D-NeRF/trex.gif" alt="Image8" style="zoom:25%;" /> 
-
-
-
-### NeRF-DS Dataset
-
-<img src="assets/results/NeRF-DS/Quantitative.jpg" alt="Image1" style="zoom:50%;" />
-
-See more visualization on our [project page](https://ingra14m.github.io/Deformable-Gaussians/).
-
-
-
-### HyperNeRF Dataset
-
-Since the **camera pose** in HyperNeRF is less precise compared to NeRF-DS, we use HyperNeRF as a reference for partial visualization and the display of Failure Cases, but do not include it in the calculation of quantitative metrics. The results of the HyperNeRF dataset can be viewed on the [project page](https://ingra14m.github.io/Deformable-Gaussians/).
-
-
-
-### Real-Time Viewer
-
-https://github.com/ingra14m/Deformable-3D-Gaussians/assets/63096187/ec26d0b9-c126-4e23-b773-dcedcf386f36
-
-
-
-
-## BibTex
-
-```
-@article{yang2023deformable3dgs,
-    title={Deformable 3D Gaussians for High-Fidelity Monocular Dynamic Scene Reconstruction},
-    author={Yang, Ziyi and Gao, Xinyu and Zhou, Wen and Jiao, Shaohui and Zhang, Yuqing and Jin, Xiaogang},
-    journal={arXiv preprint arXiv:2309.13101},
-    year={2023}
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+If you find our work useful, please consider citing:
+<h3 class="title">D-MiSo: Editing Dynamic 3D Scenes using Multi-Gaussians Soup</h3>
+    <pre><code>@Article{waczyńska2024dmiso,
+      author         = {Joanna Waczyńska and Piotr Borycki and Joanna Kaleta and Sławomir Tadeja and Przemysław Spurek},
+      title          = {D-MiSo: Editing Dynamic 3D Scenes using Multi-Gaussians Soup}, 
+      year           = {2024},
+      eprint         = {2405.14276},
+      archivePrefix  = {arXiv},
+      primaryClass   = {cs.CV}
 }
-```
+</code></pre>
+    <h3 class="title">Gaussian Splatting</h3>
+    <pre><code>@Article{kerbl3Dgaussians,
+      author         = {Kerbl, Bernhard and Kopanas, Georgios and Leimk{\"u}hler, Thomas and Drettakis, George},
+      title          = {3D Gaussian Splatting for Real-Time Radiance Field Rendering},
+      journal        = {ACM Transactions on Graphics},
+      number         = {4},
+      volume         = {42},
+      month          = {July},
+      year           = {2023},
+      url            = {https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/}
+}</code></pre>
 
-And thanks to the authors of [3D Gaussians](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) for their excellent code, please consider also cite this repository:
+<h3 class="title">SC-GS: Sparse-Controlled Gaussian Splatting</h3>
+    <pre><code>@Article{huang2023sc,
+      author         = {Huang, Yi-Hua and Sun, Yang-Tian and Yang, Ziyi and Lyu, Xiaoyang and Cao, Yan-Pei and Qi, Xiaojuan},
+      title          = {SC-GS: Sparse-Controlled Gaussian Splatting for Editable Dynamic Scenes},
+      journal        = {arXiv preprint arXiv:2312.14937},
+      year           = {2023}
+}</code></pre>
+</div>
 
-```
-@Article{kerbl3Dgaussians,
-      author       = {Kerbl, Bernhard and Kopanas, Georgios and Leimk{\"u}hler, Thomas and Drettakis, George},
-      title        = {3D Gaussian Splatting for Real-Time Radiance Field Rendering},
-      journal      = {ACM Transactions on Graphics},
-      number       = {4},
-      volume       = {42},
-      month        = {July},
-      year         = {2023},
-      url          = {https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/}
-}
-```
-
+</section>

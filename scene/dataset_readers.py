@@ -230,7 +230,10 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
         frames = contents["frames"]
         for idx, frame in enumerate(frames):
             cam_name = os.path.join(path, frame["file_path"] + extension)
-            frame_time = frame['time']
+            if 'time' in frame:
+                frame_time = frame['time']
+            else:
+                frame_time = 0.0
 
             matrix = np.linalg.inv(np.array(frame["transform_matrix"]))
             R = -np.transpose(matrix[:3, :3])

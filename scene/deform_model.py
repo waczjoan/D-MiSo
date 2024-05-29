@@ -1,6 +1,4 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from utils.time_utils import DeformNetwork
 import os
 from utils.system_utils import searchForMaxIteration
