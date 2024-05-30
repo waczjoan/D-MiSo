@@ -30,7 +30,7 @@ from utils.graphics_utils import getWorld2View2, focal2fov, fov2focal
 from utils.camera_utils import cameraList_from_camInfos
 
 
-def render_set(model_path, load2gpu_on_the_fly, name, iteration, views, gaussians, pipeline, background, objpath):
+def render_set(model_path, load2gpu_on_the_fly, name, iteration, views, gaussians, pipeline, background, objpath, resize):
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
 
     makedirs(render_path, exist_ok=True)
@@ -39,7 +39,7 @@ def render_set(model_path, load2gpu_on_the_fly, name, iteration, views, gaussian
         objpath,
         force='mesh'
     )
-    sub_triangle_soup = torch.tensor(scene.triangles).cuda().float()
+    sub_triangle_soup = torch.tensor(scene.triangles).cuda().float()/resize
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         if load2gpu_on_the_fly:
@@ -84,7 +84,7 @@ def readCamerasFromTransforms(path, transformsfile, extension=".png", height=800
     return cam_infos
 
 
-def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, objpath):
+def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, objpath, resize):
     with torch.no_grad():
         gaussians = PcdGaussianModel(dataset.sh_degree, dataset.deform_width, dataset.deform_depth, dataset.is_blender, dataset.is_6dof)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
@@ -104,7 +104,7 @@ def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, 
         render_func(
             dataset.model_path, dataset.load2gpu_on_the_fly, "additional_views", scene.loaded_iter,
             cam_infos, gaussians, pipeline,
-            background, objpath
+            background, objpath, resize
         )
 
 
@@ -118,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--objpath", default="")
+    parser.add_argument("--resize_soup", default=100)
     parser.add_argument("--mode", default='render', choices=['render'])
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
@@ -125,4 +126,4 @@ if __name__ == "__main__":
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.objpath)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.objpath, args.resize_soup)

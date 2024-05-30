@@ -40,7 +40,7 @@ def render_set(model_path, load2gpu_on_the_fly, is_6dof, name, iteration, views,
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         if load2gpu_on_the_fly:
             view.load2device()
-        fid = view.fid
+        fid = views[idx].fid
         xyz = gaussians.get_xyz
         time_input = fid.unsqueeze(0).expand(xyz.shape[0], -1)
         d_v1, d_v2, d_v3, d_rot = deform.step(

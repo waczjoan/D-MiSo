@@ -65,8 +65,8 @@ Download dataset and put it in `data` directory.
   - `PanopticSports Datasets:` find scenes under the [link](http://domedb.perception.cs.cmu.edu/).
 
 If you would like only check renders, we share two pretrained models for `jumpingjacks` from `D-NeRF Datasets`:
-- with black background: [link](dodac)
-- with white background: [link](dodac). Additionally, here we share two modified triangle-soup needed to render modification. 
+- with black background: [link](https://ujchmura-my.sharepoint.com/:f:/g/personal/joanna_waczynska_doctoral_uj_edu_pl/El9_Wq79kypGjr2GbKChX3ABx427GXdIv6-cMUs50XbXTQ?e=739ALn)
+- with white background: [link](https://ujchmura-my.sharepoint.com/:f:/g/personal/joanna_waczynska_doctoral_uj_edu_pl/El9_Wq79kypGjr2GbKChX3ABx427GXdIv6-cMUs50XbXTQ?e=739ALn). Additionally, here we share two modified triangle-soup needed to render modification. 
 
 ## Tutorial 
 In this section we describe more details, and make step by step how to train and render D-MiSo.
@@ -169,7 +169,7 @@ In `output/jumpingjacks` you should find:
 
 You can prepare your own more realistic transformation.  Open blender app; you need download it (https://www.blender.org/); Import created objects form `sub_triangle_soups` folder. Create modification and save it:  File -> Export -> Wavefront (.obj). 
 
-NOTE: For first our code use we prepared pre-trained model for `jumpingjacks`. Download it from [link](dodac). And save it:
+NOTE: For first our code use we prepared pre-trained model for `jumpingjacks`. Download it from [link](https://ujchmura-my.sharepoint.com/:f:/g/personal/joanna_waczynska_doctoral_uj_edu_pl/El9_Wq79kypGjr2GbKChX3ABx427GXdIv6-cMUs50XbXTQ?e=739ALn). And save it:
 ```
 <D-MiSo>
 |---output
@@ -179,7 +179,7 @@ NOTE: For first our code use we prepared pre-trained model for `jumpingjacks`. D
 |---...
 ```
 
-Please download also `transforms_renders.json` from [link](dodac), and put it in `data\dataset`:
+Please download also `transforms_renders.json` from [link](https://ujchmura-my.sharepoint.com/:f:/g/personal/joanna_waczynska_doctoral_uj_edu_pl/El9_Wq79kypGjr2GbKChX3ABx427GXdIv6-cMUs50XbXTQ?e=739ALn), and put it in `data\dataset`:
 for examples:
 ```
 <D-MiSo>
@@ -202,14 +202,14 @@ We prepared modification for `jumpingjacks_pre_trained_white_bg`, please find it
 |   |---<jumpingjacks_pre_trained_white_bg>
 |   |   |---traingle_soups
 |   |   |   |---selected
-|   |   |   |   |---sub_triangle_soup_example.obj
+|   |   |   |   |---sub_triangle_soup_example_time_0.2300.obj
 |   |   |   |   |---sub_triangle_soup_modification_1.obj
 |   |   |   |   |---sub_triangle_soup_modification_2.obj
 |---metrics.py
 |---...
 ```
 
-* `sub_triangle_soup_example.obj` was selected obj created  `using scripts/render_pseudomesh.py`
+* `sub_triangle_soup_example_time_0.2300.obj` was selected obj created  `using scripts/render_pseudomesh.py`
 
 6. Render modification:
 
@@ -221,6 +221,9 @@ To create renders based on created `obj` run:
 ```
 
 Please check also `sub_triangle_soup_modification_2.obj`.
+
+- `sub_triangle_soup_modification_1` -- head rotation
+- `sub_triangle_soup_modification_2` -- hand and leg moving
 
 NOTE! Script `scripts/render_based_on_obj.py` uses `transforms_renders.obj` to define views. Please check it, according to your needs.
 

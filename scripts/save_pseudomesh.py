@@ -34,6 +34,7 @@ def write_simple_obj(pseudomesh, filepath, verbose=False):
     mesh_f = faces
     with open(filepath, 'w') as fp:
         for v in mesh_v:
+            #fp.write(f'v {v[0]} {v[1]} {v[2]}\n')
             fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
         for f in mesh_f + 1:  # Faces are 1-based, not 0-based in obj files
             fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
@@ -41,9 +42,13 @@ def write_simple_obj(pseudomesh, filepath, verbose=False):
         print('pseudomesh saved to: ', filepath)
 
 
-def save_pseudomesh(model_path, name, iteration, gaussians, deform):
-    pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration), "core_triangle_soup")
-    attached_pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration), "sub_triangle_soup")
+def save_pseudomesh(model_path, name, iteration, gaussians, deform, resize):
+    if resize != 100:
+        filename = f"triangle_soup_scale_{resize}"
+    else:
+        filename = "triangle_soup"
+    pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration), f"core_{filename}")
+    attached_pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration), f"sub_{filename}")
 
     makedirs(pseudomesh_path, exist_ok=True)
     makedirs(attached_pseudomesh_path, exist_ok=True)
@@ -84,12 +89,30 @@ def save_pseudomesh(model_path, name, iteration, gaussians, deform):
         )
 
         write_simple_obj(
-            pseudomesh=attached_pseudomesh,
+            pseudomesh=attached_pseudomesh * resize,
             filepath=os.path.join(attached_pseudomesh_path, f"sub_triangle_soup_time_{'{0:.4f}'.format(fid)}" + ".obj")
         )
 
 
-def save_pseudomeshes(dataset: ModelParams, iteration: int, pipeline: PipelineParams):
+        """ NOTE!!!! 
+        Bledner save obj file with smaller precision than we needed. Hence, If we would like to make a modification
+        and strategy:
+        1. import 
+        
+        
+        import trimesh
+        scene = trimesh.load(
+            os.path.join(attached_pseudomesh_path, f"sub_triangle_soup_time_{'{0:.4f}'.format(fid)}" + ".obj"), force='mesh'
+        )
+        sub_triangle_soup = torch.tensor(scene.triangles).cuda() / resize
+
+        x = (attached_pseudomesh==sub_triangle_soup)
+        s = torch.sum(torch.abs(attached_pseudomesh-sub_triangle_soup))
+        """
+
+
+
+def save_pseudomeshes(dataset: ModelParams, iteration: int, resize):
     with torch.no_grad():
         gaussians = PcdGaussianModel(dataset.sh_degree, dataset.deform_width, dataset.deform_depth, dataset.is_blender, dataset.is_6dof)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
@@ -101,7 +124,7 @@ def save_pseudomeshes(dataset: ModelParams, iteration: int, pipeline: PipelinePa
 
         render_func(
             dataset.model_path,"triangle_soups", scene.loaded_iter,
-            gaussians, deform
+            gaussians, deform, resize
         )
 
 
@@ -113,10 +136,11 @@ if __name__ == "__main__":
     pipeline = PipelineParams(parser)
     parser.add_argument("--iteration", default='best')
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--resize_soup", default=100)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    save_pseudomeshes(model.extract(args), args.iteration, pipeline.extract(args))
+    save_pseudomeshes(model.extract(args), args.iteration, args.resize_soup)
