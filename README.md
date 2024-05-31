@@ -49,9 +49,8 @@ git clone https://github.com/waczjoan/D-MiSo.git --recursive
 
 To install the required Python packages we used 3.7 and 3.8 python and conda v. 24.1.0
 ```shell
-conda env create dmiso
+conda env create --file environment.yml
 conda dmiso
-pip install -r requirements.txt
 ```
 
 Common issues:
