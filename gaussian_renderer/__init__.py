@@ -136,7 +136,7 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, d_
 
     means2D = screenspace_points
 
-    rendered_image, radii = rasterizer(
+    rendered_image, radii, _ = rasterizer(
         means3D=means3D,
         means2D=means2D,
         shs=shs,
@@ -239,7 +239,7 @@ def render_soup(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tenso
 
     means2D = screenspace_points
 
-    rendered_image, radii = rasterizer(
+    rendered_image, radii, _ = rasterizer(
         means3D=means3D,
         means2D=means2D,
         shs=shs,

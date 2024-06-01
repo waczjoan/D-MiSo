@@ -17,7 +17,7 @@ dependencies:
   - pip:
     - chumpy==0.70
     - smplx==0.1.28
-    - submodules/diff-gaussian-rasterization
+    - submodules/depth-diff-gaussian-rasterization
     - submodules/simple-knn
     - imageio==2.27.0
     - lpips==0.1.4
