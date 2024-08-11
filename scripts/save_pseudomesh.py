@@ -41,17 +41,19 @@ def write_simple_obj(pseudomesh, filepath, verbose=False):
     if verbose:
         print('pseudomesh saved to: ', filepath)
 
+    return vertice, faces
+
 
 def save_pseudomesh(model_path, name, iteration, gaussians, deform, resize):
     if resize != 100:
         filename = f"triangle_soup_scale_{resize}"
     else:
         filename = "triangle_soup"
-    pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration), f"core_{filename}")
-    attached_pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration), f"sub_{filename}")
+    pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration))
+    #attached_pseudomesh_path = os.path.join(model_path, name, "ours_{}".format(iteration), f"sub_{filename}")
 
     makedirs(pseudomesh_path, exist_ok=True)
-    makedirs(attached_pseudomesh_path, exist_ok=True)
+    #makedirs(attached_pseudomesh_path, exist_ok=True)
 
     # Example fids, please change it if you need it:
     fids = torch.range(0, 200).float() * 0.005
@@ -83,15 +85,31 @@ def save_pseudomesh(model_path, name, iteration, gaussians, deform, resize):
 
         attached_pseudomesh = gaussians.create_faces(means3D, scales, rotations)
 
-        write_simple_obj(
+        _pseudomesh_path = os.path.join(pseudomesh_path, f"time_{'{0:.4f}'.format(fid)}")
+        print(pseudomesh_path, fid, idx)
+
+        makedirs(_pseudomesh_path, exist_ok=True)
+
+
+        vertices, faces = write_simple_obj(
             pseudomesh=pseudomesh,
-            filepath=os.path.join(pseudomesh_path, f"core_triangle_soup_time_{'{0:.4f}'.format(fid)}" + ".obj")
+            filepath=os.path.join(_pseudomesh_path, "core_triangle_soup" + ".obj")
         )
 
-        write_simple_obj(
+
+        torch.save(faces, f'{_pseudomesh_path}/core_faces.pt')
+        torch.save(vertices , f'{_pseudomesh_path}/core_vertices.pt')
+
+
+        vertices, faces = write_simple_obj(
             pseudomesh=attached_pseudomesh * resize,
-            filepath=os.path.join(attached_pseudomesh_path, f"sub_triangle_soup_time_{'{0:.4f}'.format(fid)}" + ".obj")
+            filepath=os.path.join(_pseudomesh_path, "sub_triangle_soup" + ".obj")
         )
+
+
+        torch.save(faces, f'{_pseudomesh_path}/sub_faces.pt')
+        torch.save(vertices / resize, f'{_pseudomesh_path}/sub_vertices.pt')
+
 
 
         """ NOTE!!!! 

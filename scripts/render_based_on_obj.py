@@ -84,7 +84,7 @@ def readCamerasFromTransforms(path, transformsfile, extension=".png", height=800
     return cam_infos
 
 
-def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, objpath, resize):
+def render_sets(dataset: ModelParams, iteration: int, time, pipeline: PipelineParams, objpath, resize):
     with torch.no_grad():
         gaussians = PcdGaussianModel(dataset.sh_degree, dataset.deform_width, dataset.deform_depth, dataset.is_blender, dataset.is_6dof)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
@@ -102,7 +102,7 @@ def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, 
         cam_infos = cameraList_from_camInfos(cam_infos, 1.0, dataset)
 
         render_func(
-            dataset.model_path, dataset.load2gpu_on_the_fly, "additional_views", scene.loaded_iter,
+            dataset.model_path, dataset.load2gpu_on_the_fly, f"additional_views/{time}", scene.loaded_iter,
             cam_infos, gaussians, pipeline,
             background, objpath, resize
         )
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument("--objpath", default="")
+    parser.add_argument("--objspaths", default="")
     parser.add_argument("--resize_soup", default=100)
     parser.add_argument("--mode", default='render', choices=['render'])
     args = get_combined_args(parser)
@@ -125,5 +125,12 @@ if __name__ == "__main__":
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
+    
+    lst = os.listdir(f"{args.objspaths}")  # your directory path
+    
+    print("objfile", str(lst))
+    for i in lst:
+        print(i)
+        render_sets(model.extract(args), args.iteration, i,  pipeline.extract(args), f"{args.objspaths}/{i}/sub_triangle_soup.obj", args.resize_soup)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.objpath, args.resize_soup)
+
