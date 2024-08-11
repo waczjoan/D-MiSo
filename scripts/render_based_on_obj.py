@@ -107,6 +107,21 @@ def render_sets(dataset: ModelParams, iteration: int, time, pipeline: PipelinePa
             background, objpath, resize
         )
 
+def write_simple_obj(mesh_v, mesh_f, filepath, verbose=False):
+    with open(filepath, 'w') as fp:
+        for v in mesh_v:
+            fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
+        for f in mesh_f + 1:  # Faces are 1-based, not 0-based in obj files
+            fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
+    if verbose:
+        print('mesh saved to: ', filepath)
+
+
+def transform_vertices_function(vertices, c=1):
+    vertices = vertices[:, [0, 2, 1]]
+    vertices[:, 1] = -vertices[:, 1]
+    vertices *= c
+    return vertices
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -126,11 +141,21 @@ if __name__ == "__main__":
     # Initialize system state (RNG)
     safe_state(args.quiet)
     
-    lst = os.listdir(f"{args.objspaths}")  # your directory path
+    lst = os.listdir(f"{args.objspaths}/triangles")  # your directory path
     
-    print("objfile", str(lst))
+    pseudomesh_info_path = os.path.join(args.model_path, "triangle_soups/ours_best/time_0.0000")
+    faces = torch.load(f"{pseudomesh_info_path}/sub_faces.pt")
+    
+
+    makedirs(f'{args.model_path}/sym_objects/scale_{args.resize_soup}', exist_ok=True)
+
     for i in lst:
-        print(i)
-        render_sets(model.extract(args), args.iteration, i,  pipeline.extract(args), f"{args.objspaths}/{i}/sub_triangle_soup.obj", args.resize_soup)
+        vertice = torch.tensor(torch.load(f'{args.objspaths}/triangles/{i}'))
+        vertice = transform_vertices_function(vertice)
+        filename = f'{args.model_path}/sym_objects/scale_{args.resize_soup}/{i}.obj'
+        write_simple_obj(mesh_v=(vertice * args.resize_soup).detach().cpu().numpy(), mesh_f=faces, filepath=filename)
+        
+        print(filename)
+        render_sets(model.extract(args), args.iteration, i[:-3],  pipeline.extract(args), filename, args.resize_soup)
 
 
