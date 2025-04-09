@@ -16,8 +16,7 @@ import numpy as np
 from plyfile import PlyData, PlyElement
 from torch import nn
 from utils.sh_utils import RGB2SH
-from simple_knn._C import distCUDA2
-from utils.graphics_utils import BasicPointCloud
+from utils.graphics_utils import BasicPointCloud, distCUDA2
 from scene.gaussian_model import GaussianModel
 from utils.general_utils import (
     rot_to_quat_batch,
