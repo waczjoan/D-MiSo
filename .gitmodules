@@ -1,5 +1,5 @@
 
 [submodule "submodules/diff-gaussian-rasterization"]
 	path = submodules/diff-gaussian-rasterization
-	url = git@github.com:graphdeco-inria/diff-gaussian-rasterization.git
+	url = https://github.com/graphdeco-inria/diff-gaussian-rasterization.git
 	branch = dr_aa
