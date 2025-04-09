@@ -10,7 +10,7 @@ done
 
 conda create -n dmiso python=3.8 pip -y
 
-if ["$CONDA_CUDA" = true]; then
+if [ "$CONDA_CUDA" = true ]; then
   conda install -n dmiso cuda -c nvidia/label/cuda-11.8.0 -y
 fi
 
