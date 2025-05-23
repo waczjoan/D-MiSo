@@ -3,7 +3,7 @@
 # GRAPHDECO research group, https://team.inria.fr/graphdeco
 # All rights reserved.
 #
-# This software is free for non-commercial, research and evaluation use 
+# This software is free for non-commercial, research and evaluation use
 # under the terms of the LICENSE.md file.
 #
 # For inquiries contact  george.drettakis@inria.fr
@@ -16,7 +16,7 @@ from utils.graphics_utils import getWorld2View2, getProjectionMatrix
 
 
 class Camera(nn.Module):
-    def __init__(self, colmap_id, R, T, FoVx, FoVy, image, gt_alpha_mask, image_name, uid, resolution,
+    def __init__(self, colmap_id, R, T, FoVx, FoVy, image, gt_alpha_mask, bg_mask, image_name, uid, resolution,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device="cuda", fid=None, depth=None):
         super(Camera, self).__init__()
 
@@ -58,6 +58,8 @@ class Camera(nn.Module):
 
         self.trans = trans
         self.scale = scale
+
+        self.bg_mask = torch.Tensor(bg_mask).to(self.data_device)
 
         self.world_view_transform = torch.tensor(getWorld2View2(R, T, trans, scale)).transpose(0, 1).to(
             self.data_device)
