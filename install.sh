@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONDA_CUDA=false
+CONDA_CUDA=true
 
 for arg in "$@"; do
   if [ "$arg" == "--conda-cuda" ]; then
