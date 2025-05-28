@@ -3,7 +3,7 @@
 # GRAPHDECO research group, https://team.inria.fr/graphdeco
 # All rights reserved.
 #
-# This software is free for non-commercial, research and evaluation use 
+# This software is free for non-commercial, research and evaluation use
 # under the terms of the LICENSE.md file.
 #
 # For inquiries contact  george.drettakis@inria.fr
@@ -34,7 +34,8 @@ except ImportError:
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations):
     tb_writer = prepare_output_and_logger(dataset)
-    gaussians = PcdGaussianModel(dataset.sh_degree, dataset.deform_width, dataset.deform_depth, dataset.is_blender, dataset.is_6dof)
+    gaussians = PcdGaussianModel(dataset.sh_degree, dataset.deform_width, dataset.deform_depth, dataset.is_blender,
+                                 dataset.is_6dof)
     deform = gaussians.deform_model
     deform.train_setting(opt)
 
@@ -103,7 +104,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             N = gaussians.get_xyz.shape[0]
             time_input = fid.unsqueeze(0).expand(N, -1)
 
-            ast_noise = 0 if dataset.is_blender else torch.randn(1, 1, device='cuda').expand(N,-1) * time_interval * smooth_term( iteration)
+            ast_noise = 0 if dataset.is_blender else torch.randn(1, 1, device='cuda').expand(N,
+                                                                                             -1) * time_interval * smooth_term(
+                iteration)
 
             if iteration < opt.warm_up:
                 d_v1, d_v2, d_v3, d_rot = 0.0, 0.0, 0.0, 0.0
@@ -116,7 +119,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 )
 
             # Render
-            render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_v1, d_v2, d_v3, d_rot, time_input,  dataset.is_6dof)
+            render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, d_v1, d_v2, d_v3, d_rot, time_input,
+                                   dataset.is_6dof)
             image, viewspace_point_tensor, visibility_filter, radii = render_pkg_re["render"], render_pkg_re[
                 "viewspace_points"], render_pkg_re["visibility_filter"], render_pkg_re["radii"]
             # depth = render_pkg_re["depth"]
@@ -128,9 +132,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
             batch_loss_l1 += Ll1
             batch_loss += loss
-        
-        batch_loss_l1 = batch_loss_l1/BATCH_SIZE
-        batch_loss = batch_loss/BATCH_SIZE
+
+        batch_loss_l1 = batch_loss_l1 / BATCH_SIZE
+        batch_loss = batch_loss / BATCH_SIZE
         batch_loss.backward()
 
         iter_end.record()
@@ -148,9 +152,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
                 progress_bar.close()
 
             # Log and save
-            cur_psnr = training_report(tb_writer, iteration, batch_loss_l1, batch_loss, l1_loss, iter_start.elapsed_time(iter_end),
-                                    testing_iterations, scene, render, (pipe, background), deform,
-                                    dataset.load2gpu_on_the_fly, dataset.is_6dof)
+            cur_psnr = training_report(tb_writer, iteration, batch_loss_l1, batch_loss, l1_loss,
+                                       iter_start.elapsed_time(iter_end),
+                                       testing_iterations, scene, render, (pipe, background), deform,
+                                       dataset.load2gpu_on_the_fly, dataset.is_6dof)
             if iteration in testing_iterations:
                 if cur_psnr.item() > best_psnr:
                     best_psnr = cur_psnr.item()
@@ -173,7 +178,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             if iteration < opt.densify_until_iter:
                 # Keep track of max radii in image-space for pruning
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter],
-                                                                    radii[visibility_filter])
+                                                                     radii[visibility_filter])
                 gaussians.add_densification_stats(viewspace_point_tensor_grad, visibility_filter)
 
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
@@ -257,11 +262,12 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                         scene.gaussians.pseudomesh[:, 0].detach(),
                         scene.gaussians.pseudomesh[:, 1].detach(),
                         scene.gaussians.pseudomesh[:, 2].detach(),
-                        time_input#,
-                        #scene.gaussians.pseudomesh[:, 3].detach()
+                        time_input  # ,
+                        # scene.gaussians.pseudomesh[:, 3].detach()
                     )
                     image = torch.clamp(
-                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_v1, d_v2, d_v3, d_rot, time_input, is_6dof)["render"],
+                        renderFunc(viewpoint, scene.gaussians, *renderArgs, d_v1, d_v2, d_v3, d_rot, time_input,
+                                   is_6dof)["render"],
                         0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     images = torch.cat((images, image.unsqueeze(0)), dim=0)
@@ -304,7 +310,8 @@ if __name__ == "__main__":
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int,
                         default=[5000, 6000, 7_000] + list(range(8000, 80001, 1000)))
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[1_000, 7_000, 10_000, 20_000, 30_000, 40000, 50_000, 60_000, 70_000, 80000])
+    parser.add_argument("--save_iterations", nargs="+", type=int,
+                        default=[1_000, 7_000, 10_000, 20_000, 30_000, 40000, 50_000, 60_000, 70_000, 80000])
     parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(sys.argv[1:])

@@ -41,6 +41,7 @@ class CameraInfo(NamedTuple):
     height: int
     fid: float
     depth: Optional[np.array] = None
+    mask: Optional[np.array] = None
 
 
 class SceneInfo(NamedTuple):
@@ -264,7 +265,7 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                                         image_path=image_path, image_name=image_name, width=image.size[
                                             0],
-                                        height=image.size[1], fid=frame_time))
+                                        height=image.size[1], fid=frame_time,  mask=mask))
 
     return cam_infos
 

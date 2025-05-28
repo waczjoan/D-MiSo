@@ -48,11 +48,11 @@ git clone https://github.com/waczjoan/D-MiSo.git --recursive
 ### Environment
 #### Local Setup
 
-To install the required Python packages we used 3.7 and 3.8 python and conda v. 24.1.0
+To install the required Python packages run
 ```shell
-conda env create --file environment.yml
-conda dmiso
+./install.sh
 ```
+It requires conda installed. We used conda 24.11.1
 
 Common issues:
 - Are you sure you downloaded the repository with the --recursive flag?
