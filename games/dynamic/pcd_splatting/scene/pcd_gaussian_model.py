@@ -193,25 +193,31 @@ class PcdGaussianModel(GaussianModel):
 
         self.training_args = training_args
         l_params = [
-            {'params': [self.alpha], 'lr': 0.00001, "name": "alpha"},
             {'params': [self.pseudomesh], 'lr': training_args.pseudomesh_lr_init * self.spatial_lr_scale,
              "name": "pseudomesh"},
-            # {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
-            # {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
-            # {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"}
+            {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
+            {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
+            {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"}
         ]
+
+        if hasattr(self, 'alpha'):
+            l_params.append({'params': [self.alpha], 'lr': 0.00001, "name": "alpha"})
+        else:
+            print("object does not have alpha")
 
         self.optimizer = torch.optim.Adam(l_params, lr=0.0, eps=1e-15)
 
-        # self.optimizer.add_param_group({'params': [self.alpha], 'lr': 0.005, "name": "alpha"})
-        self.optimizer.add_param_group(
-            {'params': [self.attached_features_dc], 'lr': self.training_args.feature_lr, "name": "attached_f_dc"})
-        self.optimizer.add_param_group(
-            {'params': [self.attached_features_rest], 'lr': self.training_args.feature_lr, "name": "attached_f_rest"})
-        self.optimizer.add_param_group(
-            {'params': [self.attached_opacity], 'lr': self.training_args.opacity_lr, "name": "attached_opacity"})
-        self.optimizer.add_param_group({'params': [self.attached_scale], 'lr': 0.001, "name": "attached_scale"})
-        self.optimizer.add_param_group({'params': [self.attached_rotation], 'lr': 0.001, "name": "attached_rotation"})
+        if hasattr(self, 'alpha'):
+            self.optimizer.add_param_group(
+                {'params': [self.attached_features_dc], 'lr': self.training_args.attached_feature_lr, "name": "attached_f_dc"})
+            self.optimizer.add_param_group(
+                {'params': [self.attached_features_rest], 'lr': self.training_args.attached_feature_lr,
+                 "name": "attached_f_rest"})
+            self.optimizer.add_param_group(
+                {'params': [self.attached_opacity], 'lr': self.training_args.attached_opacity_lr, "name": "attached_opacity"})
+            self.optimizer.add_param_group({'params': [self.attached_scale], 'lr': 0.001, "name": "attached_scale"})
+            self.optimizer.add_param_group(
+                {'params': [self.attached_rotation], 'lr': 0.001, "name": "attached_rotation"})
 
         self.time_optimizer = torch.optim.Adam(self.additiontal_time_rot.parameters(), lr=0.1)
 
