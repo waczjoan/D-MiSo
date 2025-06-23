@@ -63,10 +63,19 @@ Download dataset and put it in `data` directory.
   - We use the `D-NeRF Datasets`;  dataset available under the [link](https://www.dropbox.com/scl/fi/cdcmkufncwcikk1dzbgb4/data.zip?rlkey=n5m21i84v2b2xk6h7qgiu8nkg&e=2&dl=0).
   - For `NeRF-DS` we used dataset available under the [link](https://github.com/JokerYan/NeRF-DS/releases/tag/v0.1-pre-release).
   - `PanopticSports Datasets:` find scenes under the [link](http://domedb.perception.cs.cmu.edu/).
+  - `DyNeRF` find scenes under the [link](https://github.com/facebookresearch/Neural_3D_Video).
 
 If you would like only check renders, we share two pretrained models for `jumpingjacks` from `D-NeRF Datasets`:
 - with black background: [link](https://ujchmura-my.sharepoint.com/:f:/g/personal/joanna_waczynska_doctoral_uj_edu_pl/El9_Wq79kypGjr2GbKChX3ABx427GXdIv6-cMUs50XbXTQ?e=739ALn)
 - with white background: [link](https://ujchmura-my.sharepoint.com/:f:/g/personal/joanna_waczynska_doctoral_uj_edu_pl/El9_Wq79kypGjr2GbKChX3ABx427GXdIv6-cMUs50XbXTQ?e=739ALn). Additionally, here we share two modified triangle-soup needed to render modification. 
+
+## DyNeRF preprocessing
+
+To train the scene on the DyNeRF (N3D) dataset, please follow the instructions from 4d-gaussian-splatting [data-preparation](https://github.com/fudan-zvg/4d-gaussian-splatting/blob/main/README.md#data-preparation) section (DyNeRF dataset). After completing the steps, run the following script on the scene you want to train:
+```shell
+python utils/restructure_n3d.py --img_folder data/N3V/$scene_name/images
+```
+This script restructures the dataset to fit the data format from the code provided by the authors of [Deformable-3D-Gaussians](https://github.com/ingra14m/Deformable-3D-Gaussians/tree/main?tab=readme-ov-file). Due to the size of the dataset, the scenes are limited to the first 24 frames by default as retained from the code of Deformable-3D-Gaussians. 
 
 ## Tutorial 
 In this section we describe more details, and make step by step how to train and render D-MiSo.
