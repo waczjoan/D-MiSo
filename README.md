@@ -257,13 +257,16 @@ In `output/jumpingjacks` you should find `additional_views` with new renders:
     <h2 class="title">BibTeX</h2>
 If you find our work useful, please consider citing:
 <h3 class="title">D-MiSo: Editing Dynamic 3D Scenes using Multi-Gaussians Soup</h3>
-    <pre><code>@Article{waczyńska2024dmiso,
-      author         = {Joanna Waczyńska and Piotr Borycki and Joanna Kaleta and Sławomir Tadeja and Przemysław Spurek},
-      title          = {D-MiSo: Editing Dynamic 3D Scenes using Multi-Gaussians Soup}, 
-      year           = {2024},
-      eprint         = {2405.14276},
-      archivePrefix  = {arXiv},
-      primaryClass   = {cs.CV}
+    <pre><code>@inproceedings{waczyńska2024dmiso,
+ author = {Waczy\'{n}ska, Joanna and Borycki, Piotr and Kaleta, Joanna and Tadeja, S\l awomir and Spurek, Przemys\l aw},
+ booktitle = {Advances in Neural Information Processing Systems},
+ editor = {A. Globerson and L. Mackey and D. Belgrave and A. Fan and U. Paquet and J. Tomczak and C. Zhang},
+ pages = {107865--107889},
+ publisher = {Curran Associates, Inc.},
+ title = {D-MiSo: Editing Dynamic 3D Scenes using Multi-Gaussians Soup},
+ url = {https://proceedings.neurips.cc/paper_files/paper/2024/file/c32319f4868da7613d78af9993100e42-Paper-Conference.pdf},
+ volume = {37},
+ year = {2024}
 }
 </code></pre>
     <h3 class="title">Gaussian Splatting</h3>
